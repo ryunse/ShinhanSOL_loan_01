@@ -12,6 +12,7 @@ const STEP_LABELS: Record<string, string> = {
   slot_filling:      'Slot Filling',
   validation:        'Validation',
   business_rule:     'Business Rule',
+  eligibility_check: 'Eligibility Q&A',
   api_query:         'API',
   candidate_products:'Candidates',
   business_action:   'Action',

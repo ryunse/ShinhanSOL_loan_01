@@ -133,7 +133,7 @@ async function seed() {
       productId: 'LOAN_REGIONAL_GUARANTEE',
       loanType: '보증부 사업자대출',
       targetCustomer: '개인사업자',
-      loanPurpose: '운전자금/사업자금',
+      loanPurpose: '운전자금/시설자금/창업자금',
       collateralOrGuarantee: '지역신용보증재단 보증',
       guaranteeRequired: 'Y',
       guaranteeAgencyType: '지역신용보증재단',

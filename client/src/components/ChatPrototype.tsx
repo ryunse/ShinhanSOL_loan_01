@@ -187,8 +187,25 @@ export default function ChatPrototype() {
                     {msg.output.message}
                   </div>
 
-                  {/* 자격 분석 조건 */}
-                  <EligibilityNotes notes={msg.output.eligibilityConditions} />
+                  {/* 자격분석 Q&A — 예/아니요 빠른 응답 버튼 */}
+                  {msg.output.step === 'eligibility_check' && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleSend('네, 해당됩니다')}
+                        disabled={isLoading}
+                        className="flex-1 text-[13px] font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-2.5 transition-colors disabled:opacity-40"
+                      >
+                        네, 해당됩니다
+                      </button>
+                      <button
+                        onClick={() => handleSend('아니요, 해당 안 됩니다')}
+                        disabled={isLoading}
+                        className="flex-1 text-[13px] font-semibold bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-xl py-2.5 transition-colors disabled:opacity-40"
+                      >
+                        아니요
+                      </button>
+                    </div>
+                  )}
 
                   {/* 필요서류 */}
                   <DocumentList docs={msg.output.documents} />

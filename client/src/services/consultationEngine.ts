@@ -34,6 +34,7 @@ export type ConsultationStep =
   | 'slot_filling'
   | 'validation'
   | 'business_rule'
+  | 'eligibility_check'   // 자격 분석 대화형 Q&A
   | 'api_query'
   | 'candidate_products'
   | 'business_action'
@@ -59,6 +60,9 @@ export interface ConsultationState {
   step: ConsultationStep
   eligibilityStatus?: EligibilityStatus
   selectedProductIds?: string[] // 직전 상담 완료 후 제시한 후보 상품 ID 목록 (follow-up 맥락 유지)
+  eligibilityRules?: EligibilityCondition[] // 자격분석 Q&A 대상 규칙 목록
+  eligibilityPendingIdx?: number            // 현재 질문 중인 규칙 인덱스
+  eligibilityAnswers?: Record<string, boolean> // ruleId → 통과 여부
   turnCount: number
 }
 
@@ -174,6 +178,19 @@ async function retrieveCustomerProfile(): Promise<CustomerProfile> {
   // 실제 구현에서는 고객 API 호출
   // 프로토타입에서는 빈 프로필 반환 (조회 불가 → askCustomer 폴백)
   return {}
+}
+
+// ─── 자격 분석 Q&A 헬퍼 ──────────────────────────────────────────────────────
+
+function detectYesNo(text: string): boolean | undefined {
+  const t = text.trim()
+  if (/^(네|예|맞|있어|됩니다|그렇습니다|해당됩니다|가능합니다|있습니다|했습니다|됐어|맞아요|네네|응|ㅇ|ok|OK|입점됐|이상됩니다)/.test(t)) return true
+  if (/아니|없어|없습니다|안돼|안됩니다|불가|해당\s*(안|없)|못했|아직|아님|nope/.test(t)) return false
+  return undefined
+}
+
+function buildEligibilityQuestion(rule: EligibilityCondition): string {
+  return `[${rule.ruleName}]\n${rule.conditionDescription}\n\n해당되시나요?\n• 네, 해당됩니다\n• 아니요, 해당 안 됩니다`
 }
 
 // ─── STEP 5: Slot Filling ────────────────────────────────────────────────────
@@ -597,8 +614,8 @@ export async function runConsultation(
   let matchedKeywords: string[] = []
   let searchMode: string
 
-  if (baseState.selectedProductIds?.length && FOLLOW_UP_INTENTS.has(intent)) {
-    // 후속 질문 — 직전 상담에서 제시한 상품을 맥락으로 사용, 새 검색 없음
+  if (baseState.selectedProductIds?.length && (FOLLOW_UP_INTENTS.has(intent) || baseState.step === 'eligibility_check')) {
+    // 후속 질문 또는 자격분석 Q&A 진행 중 — 직전 상담 상품 맥락 유지, 재검색 없음
     productIds = baseState.selectedProductIds
     searchMode = 'selected_context'
   } else {
@@ -626,26 +643,111 @@ export async function runConsultation(
     }
   }
 
-  // ── STEP 7: Business Rule ─────────────────────────────────────────────────
-  const eligibilityConditions = await evaluateEligibilityRules(productIds)
-
   // ── STEP 9: Candidate Products ────────────────────────────────────────────
   const { masters, policyMap } = await queryProductDetails(productIds)
 
-  // 희망 금액이 상품 최대 한도를 초과하는 상품은 후보에서 제외 (하드 필터)
+  // 하드 필터 1: 희망 금액이 상품 최대 한도를 초과하는 상품 제외
   const amountFiltered = masters.filter(row => {
     const policy = policyMap[row.productId]
-    if (slots.desiredAmount && policy?.maxAmount && slots.desiredAmount > policy.maxAmount) {
-      return false
-    }
+    if (slots.desiredAmount && policy?.maxAmount && slots.desiredAmount > policy.maxAmount) return false
     return true
   })
 
-  const scored = amountFiltered
+  // 하드 필터 2: 자금 목적이 상품의 대출 목적과 맞지 않는 상품 제외
+  const purposeFiltered = amountFiltered.filter(row => {
+    const policy = policyMap[row.productId]
+    if (!slots.loanPurpose || !policy?.loanPurpose) return true
+    const supported = String(policy.loanPurpose).split(/[,/]/).map((s: string) => s.trim()).filter(Boolean)
+    return supported.length === 0 || supported.includes(slots.loanPurpose)
+  })
+
+  const scored = purposeFiltered
     .map(row => ({ row, score: scoreProduct(policyMap[row.productId], slots) }))
     .sort((a, b) => b.score - a.score)
     .slice(0, 3)
   const top3Ids = scored.map(p => p.row.productId)
+
+  // ── STEP 7 (이동됨): 자격 분석 대화형 Q&A ────────────────────────────────────
+  // follow-up 인텐트 (서류·약관·신청 등)에서는 자격분석 건너뜀
+  if (!FOLLOW_UP_INTENTS.has(intent) && top3Ids.length > 0) {
+    const productNames = scored.map(p => p.row.productName).join(', ')
+
+    // 자격분석 Q&A 진행 중 — 답변 처리
+    if (baseState.step === 'eligibility_check' && baseState.eligibilityRules?.length) {
+      const rules = baseState.eligibilityRules
+      const answers = { ...(baseState.eligibilityAnswers ?? {}) }
+      const pendingIdx = baseState.eligibilityPendingIdx ?? 0
+      const yesNo = detectYesNo(userText)
+
+      // 답변 인식 불가 → 같은 질문 재요청
+      if (yesNo === undefined) {
+        const currentRule = rules[pendingIdx]
+        return {
+          step: 'eligibility_check',
+          message: `답변을 인식하지 못했습니다. '네' 또는 '아니요'로 답변해 주세요.\n\n${buildEligibilityQuestion(currentRule)}`,
+          candidateProducts: [], eligibilityConditions: [], documents: [], disclaimer: '',
+          state: { ...baseState, turnCount },
+          debug: { intent, consultationGoal, slots, pendingSlots: [], matchedKeywords, searchMode, queryMs: Date.now() - start },
+        }
+      }
+
+      const currentRule = rules[pendingIdx]
+      answers[currentRule.ruleId] = yesNo
+
+      // 필수 조건 미충족 → 신청 어려움 안내
+      if (!yesNo && currentRule.severity === 'blocking') {
+        const failState: ConsultationState = {
+          ...baseState, step: 'complete', turnCount, eligibilityAnswers: answers, selectedProductIds: top3Ids,
+        }
+        return {
+          step: 'complete',
+          message: `신청 조건 확인 결과, 현재 조건에서는 신청이 어려울 수 있습니다.\n\n[${currentRule.ruleName}]\n${currentRule.failMessage}\n\n다른 조건이나 다른 상품으로 상담을 원하시면 말씀해 주세요.`,
+          candidateProducts: [], eligibilityConditions: [], documents: [], disclaimer: '',
+          state: failState,
+          debug: { intent, consultationGoal, slots, pendingSlots: [], matchedKeywords, searchMode, queryMs: Date.now() - start },
+        }
+      }
+
+      // 다음 미답변 규칙 탐색
+      const nextIdx = rules.findIndex((r, i) => i > pendingIdx && answers[r.ruleId] === undefined)
+      if (nextIdx >= 0) {
+        const nextState: ConsultationState = {
+          ...baseState, step: 'eligibility_check', turnCount,
+          eligibilityRules: rules, eligibilityPendingIdx: nextIdx, eligibilityAnswers: answers, selectedProductIds: top3Ids,
+        }
+        return {
+          step: 'eligibility_check',
+          message: buildEligibilityQuestion(rules[nextIdx]),
+          candidateProducts: [], eligibilityConditions: [], documents: [], disclaimer: '',
+          state: nextState,
+          debug: { intent, consultationGoal, slots, pendingSlots: [], matchedKeywords, searchMode, queryMs: Date.now() - start },
+        }
+      }
+      // 모든 질문 완료 → fall through to candidate display
+
+    } else if (baseState.step !== 'eligibility_check') {
+      // 자격분석 Q&A 새로 시작
+      const allRules = await evaluateEligibilityRules(top3Ids)
+      if (allRules.length > 0) {
+        const firstRule = allRules[0]
+        const checkState: ConsultationState = {
+          ...baseState, step: 'eligibility_check', turnCount,
+          eligibilityRules: allRules, eligibilityPendingIdx: 0, eligibilityAnswers: {}, selectedProductIds: top3Ids,
+        }
+        const intro = top3Ids.length === 1
+          ? `${productNames} 신청 조건을 함께 확인해 드릴게요.`
+          : `후보 상품(${productNames}) 신청 조건을 함께 확인해 드릴게요.`
+        return {
+          step: 'eligibility_check',
+          message: `${intro}\n\n${buildEligibilityQuestion(firstRule)}`,
+          candidateProducts: [], eligibilityConditions: [], documents: [], disclaimer: '',
+          state: checkState,
+          debug: { intent, consultationGoal, slots, pendingSlots: [], matchedKeywords, searchMode, queryMs: Date.now() - start },
+        }
+      }
+      // 규칙 없음 → fall through to candidate display
+    }
+  }
 
   // ── STEP 10: Business Action ──────────────────────────────────────────────
   const ctaMap = await getBusinessActionCTA(top3Ids)
@@ -712,10 +814,11 @@ export async function runConsultation(
     step: 'complete',
     message: buildNaturalResponse(intent, slots, candidateProducts, documents),
     candidateProducts,
-    eligibilityConditions,
+    eligibilityConditions: [],
     documents,
     disclaimer: '안내드린 상품 정보는 상담 정보와 상품 조건을 기준으로 한 안내이며, 실제 대출 가능 여부와 한도, 금리는 심사 결과에 따라 달라질 수 있습니다.',
     state: completeState,
+    // eligibilityConditions: 자격분석은 대화형 Q&A로 처리하므로 여기선 빈 배열
     debug: {
       intent, consultationGoal, slots, pendingSlots: [],
       matchedKeywords, searchMode, queryMs: Date.now() - start,
