@@ -58,7 +58,16 @@ export interface ConsultationState {
   askingSlot?: string          // 현재 질문 중인 슬롯
   step: ConsultationStep
   eligibilityStatus?: EligibilityStatus
+  selectedProductIds?: string[] // 직전 상담 완료 후 제시한 후보 상품 ID 목록 (follow-up 맥락 유지)
   turnCount: number
+}
+
+export interface DocumentInfo {
+  documentId: string
+  documentName: string
+  required: boolean
+  collectionMethod?: string
+  remarks?: string
 }
 
 export interface EligibilityCondition {
@@ -80,6 +89,7 @@ export interface ConsultationOutput {
   askingSlot?: string
   candidateProducts: CandidateProduct[]
   eligibilityConditions: EligibilityCondition[]
+  documents: DocumentInfo[]      // 필요서류 (loan_document_inquiry 시 채움)
   disclaimer: string
   state: ConsultationState
   debug: {
@@ -95,6 +105,17 @@ export interface ConsultationOutput {
 }
 
 // ─── 워크플로우 정의 ────────────────────────────────────────────────────────
+
+// 직전 상담 완료 후 제시한 상품 맥락을 이어받는 후속 인텐트 목록
+// 이 인텐트로 전환 시 selectedProductIds가 있으면 상태를 리셋하지 않는다.
+const FOLLOW_UP_INTENTS = new Set([
+  'loan_document_inquiry',
+  'loan_terms_inquiry',
+  'loan_eligibility_check',
+  'loan_application',
+  'loan_product_inquiry',
+  'loan_product_comparison',
+])
 
 // 상담 유형별 필수 상담 슬롯 수집 순서
 const CONSULTATION_REQUIRED_SLOTS: Record<string, string[]> = {
@@ -316,6 +337,22 @@ function toArray(v: unknown): string[] {
   return []
 }
 
+// ─── STEP 8-b: Documents Query ───────────────────────────────────────────────
+
+async function queryDocuments(productIds: string[]): Promise<DocumentInfo[]> {
+  const { data } = await supabase
+    .from('documents')
+    .select('documentId, productId, documentName, required, collectionMethod, remarks')
+    .in('productId', productIds)
+  return ((data ?? []) as any[]).map(r => ({
+    documentId: r.documentId ?? '',
+    documentName: r.documentName ?? '',
+    required: r.required === 'Y' || r.required === true,
+    collectionMethod: r.collectionMethod ?? undefined,
+    remarks: r.remarks ?? undefined,
+  }))
+}
+
 // ─── STEP 10: Business Action — routing_map ──────────────────────────────────
 
 async function getBusinessActionCTA(productIds: string[]): Promise<Record<string, any>> {
@@ -347,7 +384,8 @@ function formatAmount(n?: number): string {
 function buildNaturalResponse(
   intent: string,
   slots: ConsultationSlots,
-  candidateProducts: CandidateProduct[]
+  candidateProducts: CandidateProduct[],
+  documents: DocumentInfo[] = []
 ): string {
   const hints: string[] = []
   if (slots.customerType) hints.push(slots.customerType)
@@ -358,9 +396,28 @@ function buildNaturalResponse(
   const cond = hints.length ? ` (${hints.join(' · ')})` : ''
 
   if (intent === 'loan_document_inquiry') {
-    return candidateProducts.length
-      ? `${candidateProducts[0].productName} 필요서류를 안내해드립니다. 실제 제출은 앱 화면에서 진행해 주세요.`
-      : '필요서류 정보를 찾지 못했습니다. 상담원을 통해 확인해 주세요.'
+    if (!candidateProducts.length) return '필요서류 정보를 찾지 못했습니다. 상담원을 통해 확인해 주세요.'
+    const productName = candidateProducts[0].productName
+    if (documents.length === 0) {
+      return `${productName} 필요서류를 안내해드립니다. 실제 제출은 앱 화면에서 진행해 주세요.`
+    }
+    const required = documents.filter(d => d.required)
+    const optional = documents.filter(d => !d.required)
+    const lines: string[] = [`[${productName}] 필요서류 안내`]
+    if (required.length) {
+      lines.push('\n▶ 필수 서류')
+      required.forEach(d =>
+        lines.push(`• ${d.documentName}${d.collectionMethod ? ` (${d.collectionMethod})` : ''}`)
+      )
+    }
+    if (optional.length) {
+      lines.push('\n▶ 해당 시 제출')
+      optional.forEach(d =>
+        lines.push(`• ${d.documentName}${d.remarks ? ` — ${d.remarks}` : ''}`)
+      )
+    }
+    lines.push('\n실제 제출은 앱 화면에서 진행해 주세요.')
+    return lines.join('\n')
   }
   if (intent === 'loan_terms_inquiry') {
     return '약관 및 동의서는 아래 버튼에서 확인하실 수 있습니다. 실제 동의는 앱 화면에서 진행해 주세요.'
@@ -402,10 +459,11 @@ export async function runConsultation(
 
   // ── STEP 1: Intent Detection ─────────────────────────────────────────────
   const newIntent = detectIntent(userText)
-  const intentChanged = prevState && prevState.intent !== newIntent
+  const intentChanged = !!(prevState && prevState.intent !== newIntent)
+  // 후속 인텐트(서류·약관·자격·신청 등)이고 직전 추천 상품 ID가 있으면 → 상태 리셋 없이 맥락 유지
+  const isFollowUpWithContext = !!(intentChanged && prevState?.selectedProductIds?.length && FOLLOW_UP_INTENTS.has(newIntent))
 
-  // 인텐트 변경 또는 신규 → 상담 상태 초기화
-  const baseState: ConsultationState = intentChanged || !prevState
+  const baseState: ConsultationState = (intentChanged && !isFollowUpWithContext) || !prevState
     ? {
         intent: newIntent,
         slots: {},
@@ -413,7 +471,7 @@ export async function runConsultation(
         step: 'intent_detection',
         turnCount: 0,
       }
-    : { ...prevState }
+    : { ...prevState, intent: newIntent }
 
   const intent = baseState.intent
   const turnCount = baseState.turnCount + 1
@@ -448,6 +506,7 @@ export async function runConsultation(
         askingSlot: baseState.askingSlot,
         candidateProducts: [],
         eligibilityConditions: [],
+        documents: [],
         disclaimer: '',
         state: retryState,
         debug: {
@@ -479,6 +538,7 @@ export async function runConsultation(
       askingSlot: nextSlot,
       candidateProducts: [],
       eligibilityConditions: [],
+      documents: [],
       disclaimer: '',
       state: askingState,
       debug: {
@@ -490,14 +550,24 @@ export async function runConsultation(
   }
 
   // ── STEP 8: API Query ─────────────────────────────────────────────────────
-  const { productIds: kwIds, matchedKeywords } = await searchProducts(userText)
-  let productIds = kwIds
-  let searchMode = 'keyword'
+  let productIds: string[]
+  let matchedKeywords: string[] = []
+  let searchMode: string
 
-  if (productIds.length === 0) {
-    searchMode = 'slot_fallback'
-    const { data } = await supabase.from('product_master').select('productId').eq('active', 'Y')
-    productIds = ((data ?? []) as any[]).map(r => r.productId)
+  if (baseState.selectedProductIds?.length && FOLLOW_UP_INTENTS.has(intent)) {
+    // 후속 질문 — 직전 상담에서 제시한 상품을 맥락으로 사용, 새 검색 없음
+    productIds = baseState.selectedProductIds
+    searchMode = 'selected_context'
+  } else {
+    const kwResult = await searchProducts(userText)
+    productIds = kwResult.productIds
+    matchedKeywords = kwResult.matchedKeywords
+    searchMode = 'keyword'
+    if (productIds.length === 0) {
+      searchMode = 'slot_fallback'
+      const { data } = await supabase.from('product_master').select('productId').eq('active', 'Y')
+      productIds = ((data ?? []) as any[]).map(r => r.productId)
+    }
   }
 
   if (productIds.length === 0) {
@@ -507,7 +577,7 @@ export async function runConsultation(
     return {
       step: 'complete',
       message: 'DB에 등록된 상품이 없습니다.',
-      candidateProducts: [], eligibilityConditions: [], disclaimer: '',
+      candidateProducts: [], eligibilityConditions: [], documents: [], disclaimer: '',
       state: emptyState,
       debug: { intent, consultationGoal, slots, pendingSlots: [], matchedKeywords, searchMode, queryMs: Date.now() - start },
     }
@@ -584,16 +654,23 @@ export async function runConsultation(
     }
   })
 
+  // 필요서류 인텐트면 documents 테이블 조회
+  const documents = intent === 'loan_document_inquiry'
+    ? await queryDocuments(top3Ids)
+    : []
+
   const completeState: ConsultationState = {
     intent, consultationGoal, slots, pendingSlots: [], askingSlot: undefined,
     step: 'complete', turnCount,
+    selectedProductIds: top3Ids,  // 후속 follow-up 질문에서 맥락으로 사용
   }
 
   return {
     step: 'complete',
-    message: buildNaturalResponse(intent, slots, candidateProducts),
+    message: buildNaturalResponse(intent, slots, candidateProducts, documents),
     candidateProducts,
     eligibilityConditions,
+    documents,
     disclaimer: '안내드린 상품 정보는 상담 정보와 상품 조건을 기준으로 한 안내이며, 실제 대출 가능 여부와 한도, 금리는 심사 결과에 따라 달라질 수 있습니다.',
     state: completeState,
     debug: {

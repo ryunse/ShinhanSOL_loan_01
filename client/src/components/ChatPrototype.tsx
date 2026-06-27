@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { runConsultation, ConsultationState, ConsultationOutput, EligibilityCondition } from '@/services/consultationEngine'
+import { runConsultation, ConsultationState, ConsultationOutput, EligibilityCondition, DocumentInfo } from '@/services/consultationEngine'
 import { CTAInfo } from '@/services/loanRuntimeService'
 import ProductRecommendationCard from './ProductRecommendationCard'
 import RuntimeDebugPanel from './RuntimeDebugPanel'
@@ -19,6 +19,49 @@ const SAMPLE_UTTERANCES = [
   '보증서대출 신청하고 싶어',
   '보증서대출 서류 뭐 필요해?',
 ]
+
+function DocumentList({ docs }: { docs: DocumentInfo[] }) {
+  if (!docs.length) return null
+  const required = docs.filter(d => d.required)
+  const optional = docs.filter(d => !d.required)
+  return (
+    <div className="bg-blue-50 border border-blue-100 rounded-2xl rounded-tl-sm px-3.5 py-2.5 space-y-2">
+      <p className="text-[11px] font-semibold text-blue-700">필요서류 안내</p>
+      {required.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[10px] font-medium text-blue-600 uppercase tracking-wide">필수</p>
+          {required.map((d, i) => (
+            <div key={i} className="flex items-start gap-1.5">
+              <span className="text-blue-400 text-[11px] mt-0.5">●</span>
+              <div>
+                <p className="text-[12px] text-blue-900 font-medium">{d.documentName}</p>
+                {d.collectionMethod && (
+                  <p className="text-[11px] text-blue-500">{d.collectionMethod}</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {optional.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[10px] font-medium text-blue-500 uppercase tracking-wide">해당 시 제출</p>
+          {optional.map((d, i) => (
+            <div key={i} className="flex items-start gap-1.5">
+              <span className="text-blue-300 text-[11px] mt-0.5">○</span>
+              <div>
+                <p className="text-[12px] text-blue-800">{d.documentName}</p>
+                {d.remarks && (
+                  <p className="text-[11px] text-blue-400">{d.remarks}</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function EligibilityNotes({ notes }: { notes: EligibilityCondition[] }) {
   if (!notes.length) return null
@@ -147,12 +190,16 @@ export default function ChatPrototype() {
                   {/* 자격 분석 조건 */}
                   <EligibilityNotes notes={msg.output.eligibilityConditions} />
 
+                  {/* 필요서류 */}
+                  <DocumentList docs={msg.output.documents} />
+
                   {/* 후보 상품 카드 */}
                   {msg.output.candidateProducts.map(product => (
                     <ProductRecommendationCard
                       key={product.productId}
                       product={product}
                       onCTAClick={handleCTAClick}
+                      onQuickAction={handleSend}
                     />
                   ))}
 
