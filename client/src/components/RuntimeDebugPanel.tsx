@@ -8,16 +8,16 @@ interface Props {
 }
 
 const STEP_LABELS: Record<string, string> = {
-  intent_detection:  'Intent',
-  slot_filling:      'Slot Filling',
-  validation:        'Validation',
-  business_rule:     'Business Rule',
-  eligibility_check: 'Eligibility Q&A',
-  api_query:         'API',
-  candidate_products:'Candidates',
-  business_action:   'Action',
-  natural_response:  'Response',
-  complete:          'Complete',
+  understand_intent:  'Intent',
+  identify_customer:  '고객확인',
+  check_repayment:    '상환능력',
+  find_candidates:    '후보탐색',
+  eligibility_check:  'Eligibility',
+  calculate_estimate: '한도·금리',
+  guide_pre_approval: '예비승인',
+  guide_documents:    '서류안내',
+  screen_transition:  '화면이동',
+  complete:           'Complete',
 }
 
 export default function RuntimeDebugPanel({ data }: Props) {
@@ -25,7 +25,7 @@ export default function RuntimeDebugPanel({ data }: Props) {
 
   if (!data) return null
 
-  const { step, debug, candidateProducts, eligibilityConditions } = data
+  const { currentStep, debug, candidateProducts, eligibilityConditions } = data
 
   return (
     <div className="border-t border-gray-200 bg-gray-50">
@@ -36,7 +36,7 @@ export default function RuntimeDebugPanel({ data }: Props) {
         <span className="font-medium">런타임 디버그</span>
         <div className="flex items-center gap-2">
           <span className="bg-blue-100 text-blue-700 text-[10px] font-mono px-1.5 py-0.5 rounded">
-            {STEP_LABELS[step] ?? step}
+            {STEP_LABELS[currentStep] ?? currentStep}
           </span>
           <span className="bg-green-100 text-green-700 text-[10px] font-mono px-1.5 py-0.5 rounded">
             {debug.queryMs}ms
@@ -50,7 +50,7 @@ export default function RuntimeDebugPanel({ data }: Props) {
           {/* 칩 행 */}
           <div className="flex gap-1.5 flex-wrap">
             <span className="text-[11px] bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 font-mono">
-              intent: {debug.intent}
+              category: {debug.loanCategory}
             </span>
             <span className="text-[11px] bg-gray-100 text-gray-600 rounded-full px-2 py-0.5 font-mono">
               candidates: {candidateProducts.length}
@@ -61,12 +61,20 @@ export default function RuntimeDebugPanel({ data }: Props) {
             <span className="text-[11px] bg-yellow-100 text-yellow-700 rounded-full px-2 py-0.5 font-mono">
               pending: [{debug.pendingSlots.join(', ')}]
             </span>
-            {Object.entries(debug.slots).map(([k, v]) =>
-              v != null ? (
-                <span key={k} className="text-[11px] bg-orange-100 text-orange-700 rounded-full px-2 py-0.5 font-mono">
-                  {k}: {String(v)}
-                </span>
-              ) : null
+            {debug.loanIntent.desiredAmount != null && (
+              <span className="text-[11px] bg-orange-100 text-orange-700 rounded-full px-2 py-0.5 font-mono">
+                amount: {(debug.loanIntent.desiredAmount / 10000).toLocaleString()}만
+              </span>
+            )}
+            {debug.loanIntent.loanPurposeDetail && (
+              <span className="text-[11px] bg-orange-100 text-orange-700 rounded-full px-2 py-0.5 font-mono">
+                purpose: {debug.loanIntent.loanPurposeDetail}
+              </span>
+            )}
+            {debug.customerProfile.customerType && (
+              <span className="text-[11px] bg-orange-100 text-orange-700 rounded-full px-2 py-0.5 font-mono">
+                type: {debug.customerProfile.customerType}
+              </span>
             )}
             {eligibilityConditions.length > 0 && (
               <span className="text-[11px] bg-red-100 text-red-600 rounded-full px-2 py-0.5 font-mono">
@@ -85,7 +93,7 @@ export default function RuntimeDebugPanel({ data }: Props) {
             {Object.keys(STEP_LABELS).map((s, i, arr) => (
               <div key={s} className="flex items-center gap-1 shrink-0">
                 <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
-                  s === step ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
+                  s === currentStep ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
                 }`}>
                   {STEP_LABELS[s]}
                 </span>

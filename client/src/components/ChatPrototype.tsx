@@ -198,7 +198,7 @@ export default function ChatPrototype() {
           {/* 현재 step 배지 */}
           {consultationState && (
             <span className="text-[10px] bg-blue-50 text-blue-500 border border-blue-100 rounded-full px-2 py-0.5 font-mono">
-              {consultationState.step}
+              {consultationState.currentStep}
             </span>
           )}
           <div className="w-2 h-2 bg-green-400 rounded-full" title="연결됨" />
@@ -237,7 +237,7 @@ export default function ChatPrototype() {
                   </div>
 
                   {/* 자격분석 Q&A — 예/아니요 빠른 응답 버튼 (극성에 따라 레이블 변경) */}
-                  {msg.output.step === 'eligibility_check' && (() => {
+                  {msg.output.currentStep === 'eligibility_check' && (() => {
                     const isNeg = msg.output.eligibilityCurrentPolarity === 'negative'
                     return (
                       <div className="flex gap-2">
@@ -263,7 +263,7 @@ export default function ChatPrototype() {
                   <DocumentList docs={msg.output.documents} />
 
                   {/* 후보 상품 카드 — 필요서류 조회 시 미노출 */}
-                  {msg.output.state.intent !== 'loan_document_inquiry' &&
+                  {msg.output.currentStep !== 'guide_documents' &&
                     msg.output.candidateProducts.map(product => (
                       <ProductRecommendationCard
                         key={product.productId}
@@ -275,7 +275,7 @@ export default function ChatPrototype() {
 
                   {/* 면책 문구 — 필요서류 조회 시 미노출 */}
                   {msg.output.candidateProducts.length > 0 &&
-                    msg.output.state.intent !== 'loan_document_inquiry' && (
+                    msg.output.currentStep !== 'guide_documents' && (
                     <p className="text-[10px] text-gray-400 px-1 leading-relaxed">
                       {msg.output.disclaimer}
                     </p>
