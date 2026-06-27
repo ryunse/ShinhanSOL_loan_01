@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { runLoanRuntime, LoanRuntimeOutput, CTAInfo } from '@/services/loanRuntimeService'
+import { runConsultation, ConsultationState, ConsultationOutput, EligibilityResult } from '@/services/consultationEngine'
+import { CTAInfo } from '@/services/loanRuntimeService'
 import ProductRecommendationCard from './ProductRecommendationCard'
 import RuntimeDebugPanel from './RuntimeDebugPanel'
 
@@ -9,7 +10,7 @@ interface Message {
   id: string
   role: 'user' | 'ai'
   text?: string
-  runtimeOutput?: LoanRuntimeOutput
+  output?: ConsultationOutput
 }
 
 const SAMPLE_UTTERANCES = [
@@ -18,6 +19,26 @@ const SAMPLE_UTTERANCES = [
   '보증서대출 신청하고 싶어',
   '보증서대출 서류 뭐 필요해?',
 ]
+
+function EligibilityNotes({ notes }: { notes: EligibilityResult[] }) {
+  if (!notes.length) return null
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-2xl rounded-tl-sm px-3.5 py-2.5 space-y-1.5">
+      <p className="text-[11px] font-semibold text-amber-700">신청 조건 확인사항</p>
+      {notes.map(n => (
+        <div key={n.ruleId} className="flex gap-1.5">
+          <span className={`text-[10px] mt-0.5 ${n.status === 'warn' ? 'text-red-500' : 'text-amber-500'}`}>
+            {n.status === 'warn' ? '●' : '○'}
+          </span>
+          <div>
+            <p className="text-[11px] text-amber-800 font-medium">{n.ruleName}</p>
+            <p className="text-[11px] text-amber-600">{n.conditionDescription}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export default function ChatPrototype() {
   const [messages, setMessages] = useState<Message[]>([
@@ -29,7 +50,9 @@ export default function ChatPrototype() {
   ])
   const [inputText, setInputText] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [latestOutput, setLatestOutput] = useState<LoanRuntimeOutput | null>(null)
+  const [latestOutput, setLatestOutput] = useState<ConsultationOutput | null>(null)
+  // ── 대화 상태 유지 — 멀티턴 slot filling 핵심 ──────────────────────────────
+  const [consultationState, setConsultationState] = useState<ConsultationState | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -43,9 +66,10 @@ export default function ChatPrototype() {
     setIsLoading(true)
 
     try {
-      const output = await runLoanRuntime({ userText: text })
+      const output = await runConsultation(text, consultationState)
+      setConsultationState(output.state)
       setLatestOutput(output)
-      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'ai', runtimeOutput: output }])
+      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'ai', output }])
     } catch {
       setMessages(prev => [
         ...prev,
@@ -78,7 +102,15 @@ export default function ChatPrototype() {
           <p className="text-[15px] font-bold text-gray-900">AI 대출상담</p>
           <p className="text-[11px] text-gray-400">신한쏠비즈</p>
         </div>
-        <div className="ml-auto w-2 h-2 bg-green-400 rounded-full" title="연결됨" />
+        <div className="ml-auto flex items-center gap-2">
+          {/* 현재 step 배지 */}
+          {consultationState && (
+            <span className="text-[10px] bg-blue-50 text-blue-500 border border-blue-100 rounded-full px-2 py-0.5 font-mono">
+              {consultationState.step}
+            </span>
+          )}
+          <div className="w-2 h-2 bg-green-400 rounded-full" title="연결됨" />
+        </div>
       </div>
 
       {/* 채팅 영역 */}
@@ -90,7 +122,8 @@ export default function ChatPrototype() {
                 S
               </div>
             )}
-            <div className={`max-w-[80%] space-y-2 flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+            <div className={`max-w-[82%] space-y-2 flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+              {/* 단순 텍스트 버블 */}
               {msg.text && (
                 <div
                   className={`rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap ${
@@ -102,21 +135,31 @@ export default function ChatPrototype() {
                   {msg.text}
                 </div>
               )}
-              {msg.runtimeOutput && (
+
+              {/* 엔진 출력 버블 */}
+              {msg.output && (
                 <div className="w-full space-y-2">
-                  <div className="bg-white rounded-2xl rounded-tl-sm border border-gray-100 shadow-sm px-3.5 py-2.5 text-[13px] text-gray-800 leading-relaxed">
-                    {msg.runtimeOutput.message}
+                  {/* 메시지 */}
+                  <div className="bg-white rounded-2xl rounded-tl-sm border border-gray-100 shadow-sm px-3.5 py-2.5 text-[13px] text-gray-800 leading-relaxed whitespace-pre-wrap">
+                    {msg.output.message}
                   </div>
-                  {msg.runtimeOutput.products.map(product => (
+
+                  {/* 적격성 조건 */}
+                  <EligibilityNotes notes={msg.output.eligibilityNotes} />
+
+                  {/* 상품 카드 */}
+                  {msg.output.products.map(product => (
                     <ProductRecommendationCard
                       key={product.productId}
                       product={product}
                       onCTAClick={handleCTAClick}
                     />
                   ))}
-                  {msg.runtimeOutput.products.length > 0 && (
+
+                  {/* 면책 문구 */}
+                  {msg.output.products.length > 0 && (
                     <p className="text-[10px] text-gray-400 px-1 leading-relaxed">
-                      {msg.runtimeOutput.disclaimer}
+                      {msg.output.disclaimer}
                     </p>
                   )}
                 </div>
