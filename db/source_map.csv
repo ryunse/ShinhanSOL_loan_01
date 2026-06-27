@@ -1,0 +1,7 @@
+﻿sourceId,sourceName,sourceType,relatedProductId,relatedScreens,usedInSheets,remarks
+SRC_DD_PRODUCT,땡겨요 사업자 대출 상품소개,product_pdf,LOAN_DDANGYO_SOHO,,"Product_Policy,Eligibility_Rules,Documents",상품 조건/대상/한도/금리/상환/서류 기준
+SRC_DD_SCREENS,땡겨요 사업자대출 화면설계 PDF 묶음,screen_pdf,LOAN_DDANGYO_SOHO,"N_PR_067122,N_PR_067131,N_PR_067133,N_PR_067134,N_PR_067151,N_PR_067161,N_PR_067162,N_PR_067169,N_PR_067191","Screen_Mapping,Slot_Definition,Consent_Mapping",화면 흐름/필드/CTA 기준
+SRC_RG_PRODUCT,지역신용보증재단비대면보증부대출 상품소개,product_pdf,LOAN_REGIONAL_GUARANTEE,,"Product_Policy,Eligibility_Rules",보증부대출 상품 조건 기준
+SRC_RG_SCREENS,지역신용보증재단비대면보증부대출 화면설계 PDF 묶음,screen_pdf,LOAN_REGIONAL_GUARANTEE,"N_PR_066121_D01,N_PR_066122,N_PR_066123,N_PR_066131,N_PR_066134,N_PR_066139,N_PR_066151,N_PR_066161,N_PR_066162,N_PR_066163,N_PR_066169,N_PR_066291","Screen_Mapping,Slot_Definition,Consent_Mapping,Code_List",화면 흐름/필드/검증/CTA 기준
+SRC_COMMON_RATE,N_PR_002008_P01 공통 금리물 안내,screen_pdf,ALL,N_PR_002008_P01,"Screen_Mapping,Code_List",금리물 안내 팝업
+SRC_COMMON_TERMS,여신/신용정보/스크래핑/신용보증재단 동의서 묶음,terms_pdf,ALL,"N_PR_067151,N_PR_066151","Consent_Mapping,Documents",약관/동의/서류 제출 근거

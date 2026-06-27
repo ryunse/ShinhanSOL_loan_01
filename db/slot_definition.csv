@@ -1,0 +1,16 @@
+﻿slotKey,slotLabel,dataType,requiredDefault,usedProducts,collectedAtScreens,question,validationHint
+businessName,업체명,string,Y,ALL,"N_PR_067131,N_PR_066131",업체명을 확인해주세요.,display/input
+businessRegistrationNumber,사업자등록번호,string,Y,ALL,"N_PR_067131,N_PR_066131",사업자등록번호를 확인해주세요.,businessNumber
+applicationAmount,신청금액,money,Y,ALL,"N_PR_067162,N_PR_066163",신청하실 금액을 입력해주세요.,product min/max/step
+baseRateType,금리물,enum,Y,ALL,"N_PR_067162,N_PR_066163",금리물을 선택해주세요.,CD91일물|금융채6개월물
+repaymentAccount,상환계좌,account,Y,LOAN_DDANGYO_SOHO,N_PR_067162,대출원금 및 이자 상환계좌를 선택해주세요.,accountSelect
+depositRepaymentGuaranteeFeeAccount,입금/이자/보증료 납부/환급계좌,account,Y,LOAN_REGIONAL_GUARANTEE,N_PR_066163,"입금, 이자 및 보증료 납부, 환급계좌를 선택해주세요.",accountSelect
+guaranteeFoundation,지역신용보증재단,enum,Y,LOAN_REGIONAL_GUARANTEE,"N_PR_066122,N_PR_066122_B01",사업자 소재지에 해당하는 지역신용보증재단을 선택해주세요.,Code_List!Foundation
+loanManagementBranch,대출관리희망점,string,Y,ALL,"N_PR_067162,N_PR_066122",대출관리희망점을 선택해주세요.,branchSearch
+businessOwnershipType,사업장 소유 구분,enum,Y,LOAN_REGIONAL_GUARANTEE,N_PR_066161,사업장 소유 구분을 선택해주세요.,자가|임차|기타
+leaseDeposit,임차보증금,money,Conditional,LOAN_REGIONAL_GUARANTEE,N_PR_066161,임차보증금을 입력해주세요.,required if businessOwnershipType=임차
+monthlyRent,월세금액,money,Conditional,LOAN_REGIONAL_GUARANTEE,"N_PR_066161,N_PR_066162",월세금액을 입력해주세요.,required if ownership=임차
+buildingFloor,건물층,enum,Y,LOAN_REGIONAL_GUARANTEE,N_PR_066161_B01,사업장 건물층을 선택해주세요.,Code_List!BuildingFloor
+fundPurpose,자금용도,enum,Y,ALL,"N_PR_067162,N_PR_066163_B01",자금용도를 선택해주세요.,Code_List!FundPurpose
+preScreeningDate,사전검증일,date,Y,LOAN_REGIONAL_GUARANTEE,N_PR_066139,사전검증일을 확인해주세요.,today only
+guaranteeFee,보증료,money,N,LOAN_REGIONAL_GUARANTEE,N_PR_066291,보증료를 확인해주세요.,display

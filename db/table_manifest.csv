@@ -1,0 +1,13 @@
+﻿tableName,fileName,description,primaryKeyHint,rowCount
+product_master,product_master.csv,"상품 기본정보, 메뉴경로, intent, flowId 관리",productId,2
+product_policy,product_policy.csv,상품별 한도/금리/상환/보증 정책,productId,2
+eligibility_rules,eligibility_rules.csv,상품별 신청 가능/불가 조건,ruleId,7
+flow_mapping,flow_mapping.csv,상품이 참조하는 공통 플로우 유형,flowId,2
+screen_mapping,screen_mapping.csv,상품/플로우별 화면 정의 및 검수용 순서,flowId+screenId,26
+routing_map,routing_map.csv,대화 의도 기반 목적 화면/CTA 매핑,routingId,26
+documents,documents.csv,상품별 필요서류 및 제출방식,productId+documentName,12
+consent_mapping,consent_mapping.csv,상품별 필수/선택 약관 및 동의서,productId+consentName,23
+slot_definition,slot_definition.csv,대화/신청에 필요한 슬롯 정의,slotKey,15
+product_search_keyword,product_search_keyword.csv,상품 검색/추천용 키워드 사전,productId+keyword,12
+code_list,code_list.csv,공통 코드/enum 값,codeGroup+codeValue,44
+source_map,source_map.csv,자료 출처 및 산출물 매핑,sourceId,6

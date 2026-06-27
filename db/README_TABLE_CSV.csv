@@ -1,0 +1,6 @@
+﻿항목,내용
+생성일시,2026-06-27 10:04:21
+설명,엑셀 시트 기반 CSV가 아니라 운영 DB 테이블 단위로 정리한 CSV 패키지입니다.
+핵심 변경,routing_map.csv 추가: 대화형 챗봇에서 사용자 의도에 따라 이동할 화면/CTA를 결정하기 위한 매핑
+사용 흐름,공통 AI JSON → product_master/product_search_keyword 조회 → product_policy/eligibility_rules 확인 → routing_map에서 targetScreenId/CTA 반환
+주의,screen_mapping.csv의 순서는 챗봇 런타임 진행 순서가 아니라 화면설계 검수/참조용입니다.

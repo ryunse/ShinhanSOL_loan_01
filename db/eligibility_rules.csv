@@ -1,0 +1,8 @@
+﻿ruleId,productId,ruleName,conditionKey,conditionDescription,failAction,failMessage,sourceType,status
+ELG_DD_001,LOAN_DDANGYO_SOHO,땡겨요 입점 여부,isDdangyoMerchant == true,신한 배달앱 땡겨요 입점 개인사업자 여부,block_or_guide_other_product,땡겨요 입점 사업자만 신청 가능합니다.,product_source,active
+ELG_DD_002,LOAN_DDANGYO_SOHO,개업기간,businessOpenMonths >= 6,개업년월일 기준 6개월 이상,block,개업 후 6개월 이상이어야 신청 가능합니다.,product_source,active
+ELG_DD_003,LOAN_DDANGYO_SOHO,제외 대상,not in excludedBusinessTypes,"공동사업자, 일부 제한 업종 제외",block,해당 조건은 신청 대상에서 제외될 수 있습니다.,product_source,active
+ELG_RG_001,LOAN_REGIONAL_GUARANTEE,개인사업자 여부,customerType == individual_business_owner,개인사업자만 가능,show_dialog,개인사업자만 가능합니다.,screen_design,active
+ELG_RG_002,LOAN_REGIONAL_GUARANTEE,보증제한 대상,restrictedTarget == false,"휴폐업, 법인/공동대표, 연체, 세금체납, 보증제한업종, 신용상태 불량 여부",block_or_guide_foundation,보증이 제한되는 대상입니다. 재단 방문 또는 전화 상담이 필요할 수 있습니다.,screen_design,active
+ELG_RG_003,LOAN_REGIONAL_GUARANTEE,매출 발생 조건,monthlySalesContinuousLast3Months == true && weeklySalesAtLeastOnce == true,최근 3개월 연속 매출 및 최근 1주일 1회 이상 매출 발생,guide_sales_requirement,보증심사를 위한 매출정보 요건을 충족해야 합니다.,screen_design,active
+ELG_RG_004,LOAN_REGIONAL_GUARANTEE,사전검증 유효성,preScreeningDate == today,사전검증 결과 당일만 유효,require_prescreening_again,당일 신청 미완료 시 사전검증을 다시 진행해야 합니다.,screen_design,active

@@ -1,0 +1,27 @@
+﻿flowId,order,screenId,screenName,screenType,stepLabel,isPopup,isErrorBranch,nextDefaultScreen
+FLOW_BIZ_LOAN,1,N_PR_067122,신청전유의사항동의,screen,신청 전 유의사항 동의,N,N,N_PR_067131
+FLOW_BIZ_LOAN,2,N_PR_067131,사업자정보확인,screen,사업자정보 확인,N,N,N_PR_067133
+FLOW_BIZ_LOAN,3,N_PR_067133,한도조회결과,screen,한도조회 결과,N,N,N_PR_067134
+FLOW_BIZ_LOAN,4,N_PR_067134,공동인증서사업장정보조회,screen,공동인증서 기반 사업장정보 조회,N,N,N_PR_067151
+FLOW_BIZ_LOAN,5,N_PR_067151,약관동의,screen,약관 동의,N,N,N_PR_067161
+FLOW_BIZ_LOAN,6,N_PR_067161,고객정보확인,screen,고객정보 확인,N,N,N_PR_067162
+FLOW_BIZ_LOAN,7,N_PR_067162,신청정보입력,screen,신청정보 입력,N,N,N_PR_067169
+FLOW_BIZ_LOAN,7-P,N_PR_002008_P01,공통_금리물안내,popup,금리물 안내,Y,N,previousScreen
+FLOW_BIZ_LOAN,8,N_PR_067169,대출신청완료,result,대출신청 완료,N,N,N_PR_067191
+FLOW_BIZ_LOAN,9,N_PR_067191,대출약정완료,result,대출약정 완료,N,N,home
+FLOW_GUARANTEE_LOAN,1,N_PR_066121_D01,개인사업자제한안내,dialog,상품 진입 제한,N,Y,previousScreen
+FLOW_GUARANTEE_LOAN,2,N_PR_066122,신용보증재단선택,screen,신용보증재단 및 대출관리점 선택,N,N,N_PR_066123
+FLOW_GUARANTEE_LOAN,2-P,N_PR_066122_B01,지역신용보증재단선택,bottomSheet,지역신용보증재단 선택,Y,N,N_PR_066122
+FLOW_GUARANTEE_LOAN,3,N_PR_066123,신청전유의사항,screen,신청 전 유의사항 동의,N,N,N_PR_066131
+FLOW_GUARANTEE_LOAN,4,N_PR_066131,사업자정보확인,screen,사업자정보 확인,N,N,N_PR_066134
+FLOW_GUARANTEE_LOAN,5,N_PR_066134,공동인증서사업장정보조회,screen,공동인증서/매출정보 제출,N,N,N_PR_066139
+FLOW_GUARANTEE_LOAN,6,N_PR_066139,보증한도조회결과,screen,보증한도조회 결과,N,N,N_PR_066151
+FLOW_GUARANTEE_LOAN,7,N_PR_066151,약관동의,screen,약관 동의,N,N,N_PR_066161
+FLOW_GUARANTEE_LOAN,8,N_PR_066161,사업장정보입력,screen,사업장정보 입력,N,N,N_PR_066162
+FLOW_GUARANTEE_LOAN,8-P,N_PR_066161_B01,건물층선택,bottomSheet,건물층 선택,Y,N,N_PR_066161
+FLOW_GUARANTEE_LOAN,9,N_PR_066162,본인추가정보입력,screen,본인 추가정보 입력,N,N,N_PR_066163
+FLOW_GUARANTEE_LOAN,10,N_PR_066163,신청정보입력,screen,신청정보 입력,N,N,N_PR_066169
+FLOW_GUARANTEE_LOAN,10-P,N_PR_066163_B01,자금용도선택,bottomSheet,자금용도 선택,Y,N,N_PR_066163
+FLOW_GUARANTEE_LOAN,11,N_PR_066169,대출신청완료,result,보증 및 대출신청 완료,N,N,N_PR_066291
+FLOW_GUARANTEE_LOAN,12,N_PR_066291,보증약정및대출약정완료,result,보증 약정 및 대출 약정 완료,N,N,home
+FLOW_GUARANTEE_LOAN,common,N_PR_002008_P01,공통_금리물안내,popup,금리물 안내,Y,N,previousScreen

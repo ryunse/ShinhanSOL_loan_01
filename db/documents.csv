@@ -1,0 +1,13 @@
+﻿productId,documentId,documentName,required,collectionMethod,usedFor,failureAction,remarks
+LOAN_DDANGYO_SOHO,DOC_BIZ_REG_CERT,사업자등록증명원,Y,스크래핑,사업자 확인/심사,신청 제한 또는 영업점 안내,필수 서류
+LOAN_DDANGYO_SOHO,DOC_NATIONAL_TAX_CLEARANCE,국세완납증명서,Y,스크래핑,세금체납 확인,신청 제한 또는 영업점 안내,필수 서류
+LOAN_DDANGYO_SOHO,DOC_LOCAL_TAX_CLEARANCE,지방세완납증명서,Y,스크래핑,세금체납 확인,신청 제한 또는 영업점 안내,필수 서류
+LOAN_DDANGYO_SOHO,DOC_VAT_STANDARD,부가가치세 과세표준증명원,Y,스크래핑,매출/소득 확인,신청 제한 또는 영업점 안내,필수 서류
+LOAN_DDANGYO_SOHO,DOC_INCOME_AMOUNT,소득금액증명원,N,스크래핑,소득 확인,추가 제출 안내,선택 서류
+LOAN_REGIONAL_GUARANTEE,DOC_BIZ_REG_CERT,사업자등록증,Y,스크래핑/영업점 제출,보증심사,영업점 방문 상담 안내,자동 발급 실패 시 지참 서류
+LOAN_REGIONAL_GUARANTEE,DOC_LOCAL_TAX_CLEARANCE,지방세납세증명서,Y,스크래핑/영업점 제출,보증심사,영업점 방문 상담 안내,자동 발급 실패 시 지참 서류
+LOAN_REGIONAL_GUARANTEE,DOC_NATIONAL_TAX_CLEARANCE,국세납세증명서,Y,스크래핑/영업점 제출,보증심사,영업점 방문 상담 안내,자동 발급 실패 시 지참 서류
+LOAN_REGIONAL_GUARANTEE,DOC_VAT_OR_EXEMPT_SALES,부가가치세과세표준증명 또는 면세사업자수입금액증명(최근 3개년),Y,스크래핑/영업점 제출,보증심사,영업점 방문 상담 안내,자동 발급 실패 시 지참 서류
+LOAN_REGIONAL_GUARANTEE,DOC_INCOME_AMOUNT_3Y,소득금액증명원(최근 3개년),Y,스크래핑/영업점 제출,보증심사,영업점 방문 상담 안내,자동 발급 실패 시 지참 서류
+LOAN_REGIONAL_GUARANTEE,DOC_E_TAX_INVOICE_SALES,전자세금계산서 매출정보,Y,스크래핑,매출정보 제출,매출요건 미충족 안내,현금영수증 매출정보와 합산
+LOAN_REGIONAL_GUARANTEE,DOC_CASH_RECEIPT_SALES,현금영수증 매출정보,Y,스크래핑,매출정보 제출,매출요건 미충족 안내,전자세금계산서 매출정보와 합산

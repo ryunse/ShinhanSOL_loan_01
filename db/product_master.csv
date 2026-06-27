@@ -1,0 +1,3 @@
+﻿productId,productName,productGroup,productCategory,menuDepth1,menuDepth2,menuDepth3,menuPath,intent,flowId,active,remarks
+LOAN_DDANGYO_SOHO,땡겨요 사업자대출,사업자금융,사업자대출,상품,사업자대출,땡겨요 사업자대출,상품 > 사업자대출 > 땡겨요 사업자대출,business_loan_dangyo_apply,FLOW_BIZ_LOAN,Y,땡겨요 입점 개인사업자 대상 신용대출
+LOAN_REGIONAL_GUARANTEE,지역신용보증재단 비대면보증부대출,사업자금융,보증서대출,상품,보증서대출,지역신용보증재단비대면보증부대출,상품 > 보증서대출 > 지역신용보증재단비대면보증부대출,regional_guarantee_business_loan_apply,FLOW_GUARANTEE_LOAN,Y,지역신용보증재단 보증 기반 비대면 보증서대출

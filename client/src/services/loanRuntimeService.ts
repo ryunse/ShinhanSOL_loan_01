@@ -30,6 +30,9 @@ export interface ProductInfo {
     repaymentOptions?: string[]
     loanType?: string
     loanPurpose?: string
+    collateralOrGuarantee?: string
+    guaranteeRequired?: string
+    targetCustomer?: string
   }
   cta?: CTAInfo
   matchScore?: number
@@ -129,12 +132,23 @@ function scoreProduct(policy: any, slots: ExtractedSlots): number {
     }
   }
 
-  if (slots.guaranteePreference === 'none' && policy?.loanType === '신용대출') score += 20
-  if (slots.guaranteePreference === 'guarantee' && policy?.loanType === '보증부대출') score += 20
+  // collateralOrGuarantee: '신용' = 무보증, '지역신용보증재단 보증' = 보증부
+  if (slots.guaranteePreference === 'none' && policy?.collateralOrGuarantee === '신용') score += 20
+  if (slots.guaranteePreference === 'guarantee' && policy?.guaranteeRequired === 'Y') score += 20
 
-  if (slots.ratePreference === 'low' && policy?.rateType === '고정금리') score += 15
+  if (slots.ratePreference === 'low') score += 5 // 두 상품 모두 변동금리이므로 소폭 가산
 
   return score
+}
+
+function toArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value as string[]
+  if (typeof value === 'string' && value.length > 0) {
+    // JSON 배열 문자열 시도
+    try { return JSON.parse(value) } catch { /* not JSON */ }
+    return value.split(',').map(s => s.trim()).filter(Boolean)
+  }
+  return []
 }
 
 function formatAmount(amount?: number): string {
@@ -211,7 +225,7 @@ export async function runLoanRuntime(input: LoanRuntimeInput): Promise<LoanRunti
   let productIds = Array.from(productIdSet)
   if (productIds.length === 0) {
     searchMode = 'slot_fallback'
-    const { data: allProducts } = await supabase.from('product_master').select('productId')
+    const { data: allProducts } = await supabase.from('product_master').select('productId').eq('active', 'Y')
     productIds = ((allProducts ?? []) as any[]).map(r => r.productId)
   }
 
@@ -230,7 +244,7 @@ export async function runLoanRuntime(input: LoanRuntimeInput): Promise<LoanRunti
   // 3. product_master 조회
   const { data: productRows } = await supabase
     .from('product_master')
-    .select('productId, productName, menuPath')
+    .select('productId, productName, productCategory, menuPath')
     .in('productId', productIds)
 
   // 4. product_policy 조회
@@ -238,7 +252,7 @@ export async function runLoanRuntime(input: LoanRuntimeInput): Promise<LoanRunti
   if (productIds.length > 0) {
     const { data: policyRows } = await supabase
       .from('product_policy')
-      .select('productId, minAmount, maxAmount, rateType, repaymentOptions, loanType, loanPurpose')
+      .select('productId, minAmount, maxAmount, rateType, repaymentOptions, loanType, loanPurpose, collateralOrGuarantee, guaranteeRequired, targetCustomer')
       .in('productId', productIds)
     for (const p of (policyRows ?? []) as any[]) policyMap[p.productId] = p
   }
@@ -251,23 +265,21 @@ export async function runLoanRuntime(input: LoanRuntimeInput): Promise<LoanRunti
 
   const top3Ids = scoredProducts.map(p => p.row.productId)
 
-  // 6. routing_map 조회 (intent 기준, 없으면 loan_recommendation 폴백)
+  // 6. routing_map 조회 — 각 상품의 첫 번째 navigate screen (entry CTA)
+  //    actionType='navigate' + screenType='screen' 기준, routingId 오름차순 → 상품별 첫 번째 선택
   const ctaMap: Record<string, any> = {}
   if (top3Ids.length > 0) {
     const { data: routingRows } = await supabase
       .from('routing_map')
-      .select('productId, actionType, targetScreenId, ctaLabel')
-      .eq('intent', intent)
+      .select('productId, actionType, targetScreenId, targetScreenName, ctaLabel, screenType')
       .in('productId', top3Ids)
-    for (const r of (routingRows ?? []) as any[]) ctaMap[r.productId] = r
+      .eq('actionType', 'navigate')
+      .eq('screenType', 'screen')
+      .order('routingId', { ascending: true })
 
-    if (Object.keys(ctaMap).length === 0) {
-      const { data: fallbackRows } = await supabase
-        .from('routing_map')
-        .select('productId, actionType, targetScreenId, ctaLabel')
-        .eq('intent', 'loan_recommendation')
-        .in('productId', top3Ids)
-      for (const r of (fallbackRows ?? []) as any[]) ctaMap[r.productId] = r
+    for (const r of (routingRows ?? []) as any[]) {
+      // 상품별 첫 번째 라우트만 사용 (error branch dialog는 screenType='dialog'이므로 이미 제외됨)
+      if (!ctaMap[r.productId]) ctaMap[r.productId] = r
     }
   }
 
@@ -277,7 +289,7 @@ export async function runLoanRuntime(input: LoanRuntimeInput): Promise<LoanRunti
   if (screenIds.length > 0) {
     const { data: screenRows } = await supabase
       .from('screen_mapping')
-      .select('screenId, screenName')
+      .select('screenId, screenName, stepLabel')
       .in('screenId', screenIds)
     for (const s of (screenRows ?? []) as any[]) screenMap[s.screenId] = s
   }
@@ -292,22 +304,25 @@ export async function runLoanRuntime(input: LoanRuntimeInput): Promise<LoanRunti
           label: routing.ctaLabel,
           action: routing.actionType,
           targetScreenId: routing.targetScreenId,
-          targetScreenName: screen?.screenName ?? routing.targetScreenId,
+          targetScreenName: screen?.screenName ?? routing.targetScreenName ?? routing.targetScreenId,
         }
       : undefined
 
     return {
       productId: row.productId,
       productName: row.productName,
-      category: row.category ?? '',
+      category: row.productCategory ?? '',
       menuPath: row.menuPath,
       policy: {
         minAmount: policy.minAmount,
         maxAmount: policy.maxAmount,
         rateType: policy.rateType,
-        repaymentOptions: policy.repaymentOptions,
+        repaymentOptions: toArray(policy.repaymentOptions),
         loanType: policy.loanType,
         loanPurpose: policy.loanPurpose,
+        collateralOrGuarantee: policy.collateralOrGuarantee,
+        guaranteeRequired: policy.guaranteeRequired,
+        targetCustomer: policy.targetCustomer,
       },
       cta,
       matchScore: score,

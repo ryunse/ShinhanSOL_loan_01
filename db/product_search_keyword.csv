@@ -1,0 +1,13 @@
+﻿productId,keywordType,keyword,weight,matchIntentHint,remarks
+LOAN_DDANGYO_SOHO,상품명,땡겨요,100,business_loan_dangyo_apply,상품명 핵심어
+LOAN_DDANGYO_SOHO,상품명,땡겨요 사업자대출,100,business_loan_dangyo_apply,정식 상품명
+LOAN_DDANGYO_SOHO,대상,배달앱,70,business_loan_consultation,대상/업종 힌트
+LOAN_DDANGYO_SOHO,대상,입점사업자,80,business_loan_consultation,대상 힌트
+LOAN_DDANGYO_SOHO,대상,음식점,50,business_loan_consultation,가능 후보
+LOAN_REGIONAL_GUARANTEE,상품명,지역신용,100,regional_guarantee_business_loan_apply,상품명 핵심어
+LOAN_REGIONAL_GUARANTEE,상품명,신용보증재단,100,regional_guarantee_business_loan_apply,상품명 핵심어
+LOAN_REGIONAL_GUARANTEE,상품명,보증서대출,100,regional_guarantee_business_loan_apply,카테고리 핵심어
+LOAN_REGIONAL_GUARANTEE,상품명,지역신용보증재단비대면보증부대출,100,regional_guarantee_business_loan_apply,정식 상품명
+LOAN_REGIONAL_GUARANTEE,대상,소상공인,70,business_loan_consultation,대상 힌트
+LOAN_REGIONAL_GUARANTEE,대상,개인사업자,70,business_loan_consultation,대상 힌트
+LOAN_REGIONAL_GUARANTEE,업무,보증,80,regional_guarantee_business_loan_apply,보증 업무 힌트

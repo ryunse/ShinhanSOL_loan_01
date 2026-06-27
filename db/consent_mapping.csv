@@ -1,0 +1,24 @@
+﻿productId,consentId,consentName,required,category,screenId,displayOrder,remarks
+LOAN_DDANGYO_SOHO,CONS_BANK_BASIC_TERMS,은행여신거래기본약관(기업용),Y,여신공통,N_PR_067151,1,
+LOAN_DDANGYO_SOHO,CONS_LOAN_AGREEMENT,여신거래약정서(기업용),Y,여신공통,N_PR_067151,2,
+LOAN_DDANGYO_SOHO,CONS_PRODUCT_DESC,기업대출 상품설명서,Y,여신공통,N_PR_067151,3,
+LOAN_DDANGYO_SOHO,CONS_CREDIT_INQUIRY,개인(신용)정보조회동의서,Y,개인신용정보,N_PR_067151,4,
+LOAN_DDANGYO_SOHO,CONS_COMMON_CREDIT_USE,[공통필수]개인(신용)정보 수집·이용 제공 동의서(여신),Y,개인신용정보,N_PR_067151,5,
+LOAN_DDANGYO_SOHO,CONS_CUSTOMER_RIGHTS,개인(신용)정보 수집·이용 및 제공 관련 고객 권리 안내문,Y,개인신용정보,N_PR_067151,6,
+LOAN_DDANGYO_SOHO,CONS_FINANCIAL_STATEMENTS,신용정보 수집·이용·제공 동의서(재무제표 수집 등),Y,재무정보,N_PR_067151,7,
+LOAN_DDANGYO_SOHO,CONS_SCRAPING,서류제출자동화서비스(스크래핑)서비스 이용신청서(사업자대출용),Y,서류제출,N_PR_067151,8,
+LOAN_DDANGYO_SOHO,CONS_TELECOM_COMMON,[여신用][공통선택] 개인(신용)정보 수집·이용·제공 동의서(통신관련정보),Y,통신정보,N_PR_067151,9,
+LOAN_DDANGYO_SOHO,CONS_TELECOM,개인(신용)정보 수집·이용·제공 동의서(통신관련정보),Y,통신정보,N_PR_067151,10,
+LOAN_REGIONAL_GUARANTEE,CONS_BANK_BASIC_TERMS,은행여신거래기본약관(기업용),Y,여신공통,N_PR_066151,1,
+LOAN_REGIONAL_GUARANTEE,CONS_LOAN_AGREEMENT,여신거래약정서(기업용),Y,여신공통,N_PR_066151,2,
+LOAN_REGIONAL_GUARANTEE,CONS_PRODUCT_DESC,기업대출 상품설명서,Y,여신공통,N_PR_066151,3,
+LOAN_REGIONAL_GUARANTEE,CONS_CREDIT_INQUIRY,개인(신용)정보조회동의서,Y,개인신용정보,N_PR_066151,4,
+LOAN_REGIONAL_GUARANTEE,CONS_COMMON_CREDIT_USE,[공통필수]개인(신용)정보 수집·이용 제공 동의서(여신),Y,개인신용정보,N_PR_066151,5,
+LOAN_REGIONAL_GUARANTEE,CONS_CUSTOMER_RIGHTS,개인(신용)정보 수집·이용 및 제공 관련 고객 권리 안내문,Y,개인신용정보,N_PR_066151,6,
+LOAN_REGIONAL_GUARANTEE,CONS_FINANCIAL_STATEMENTS,신용정보 수집·이용·제공 동의서(재무제표 수집 등),Y,재무정보,N_PR_066151,7,
+LOAN_REGIONAL_GUARANTEE,CONS_SCRAPING,서류제출자동화서비스(스크래핑)서비스 이용신청서(사업자대출용),Y,서류제출,N_PR_066151,8,
+LOAN_REGIONAL_GUARANTEE,CONS_TELECOM_COMMON,[여신用][공통선택] 개인(신용)정보 수집·이용·제공 동의서(통신관련정보),Y,통신정보,N_PR_066151,9,
+LOAN_REGIONAL_GUARANTEE,CONS_TELECOM,개인(신용)정보 수집·이용·제공 동의서(통신관련정보),Y,통신정보,N_PR_066151,10,
+LOAN_REGIONAL_GUARANTEE,CONS_GUARANTEE_CORP_CREDIT,기업(신용)정보 수집·이용·제공·조회 동의서(신용보증재단중앙회),Y,신용보증재단,N_PR_066151,11,보증부대출 필수
+LOAN_REGIONAL_GUARANTEE,CONS_GUARANTEE_PERSONAL_CREDIT,개인(신용)정보 수집·이용·제공·조회 동의서(신용보증재단중앙회),Y,신용보증재단,N_PR_066151,12,보증부대출 필수
+LOAN_REGIONAL_GUARANTEE,CONS_GUARANTEE_OPTIONAL,개인(신용)정보 수집·이용·제공 동의서(신용보증재단중앙회),N,신용보증재단,N_PR_066151,13,보증부대출 선택
