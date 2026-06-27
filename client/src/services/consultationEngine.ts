@@ -686,7 +686,8 @@ export async function runConsultation(
           step: 'eligibility_check',
           message: `답변을 인식하지 못했습니다. '네' 또는 '아니요'로 답변해 주세요.\n\n${buildEligibilityQuestion(currentRule)}`,
           candidateProducts: [], eligibilityConditions: [], documents: [], disclaimer: '',
-          state: { ...baseState, turnCount },
+          // slots: 방금 추출한 slots 저장, askingSlot 초기화 (슬롯 재요청 루프 방지)
+          state: { ...baseState, slots, askingSlot: undefined, turnCount },
           debug: { intent, consultationGoal, slots, pendingSlots: [], matchedKeywords, searchMode, queryMs: Date.now() - start },
         }
       }
@@ -697,7 +698,8 @@ export async function runConsultation(
       // 필수 조건 미충족 → 신청 어려움 안내
       if (!yesNo && currentRule.severity === 'blocking') {
         const failState: ConsultationState = {
-          ...baseState, step: 'complete', turnCount, eligibilityAnswers: answers, selectedProductIds: top3Ids,
+          ...baseState, slots, askingSlot: undefined, step: 'complete', turnCount,
+          eligibilityAnswers: answers, selectedProductIds: top3Ids,
         }
         return {
           step: 'complete',
@@ -712,7 +714,7 @@ export async function runConsultation(
       const nextIdx = rules.findIndex((r, i) => i > pendingIdx && answers[r.ruleId] === undefined)
       if (nextIdx >= 0) {
         const nextState: ConsultationState = {
-          ...baseState, step: 'eligibility_check', turnCount,
+          ...baseState, slots, askingSlot: undefined, step: 'eligibility_check', turnCount,
           eligibilityRules: rules, eligibilityPendingIdx: nextIdx, eligibilityAnswers: answers, selectedProductIds: top3Ids,
         }
         return {
@@ -731,7 +733,8 @@ export async function runConsultation(
       if (allRules.length > 0) {
         const firstRule = allRules[0]
         const checkState: ConsultationState = {
-          ...baseState, step: 'eligibility_check', turnCount,
+          // slots: 방금 추출한 값 반드시 포함, askingSlot 초기화 (슬롯 재요청 루프 방지)
+          ...baseState, slots, askingSlot: undefined, step: 'eligibility_check', turnCount,
           eligibilityRules: allRules, eligibilityPendingIdx: 0, eligibilityAnswers: {}, selectedProductIds: top3Ids,
         }
         const intro = top3Ids.length === 1
