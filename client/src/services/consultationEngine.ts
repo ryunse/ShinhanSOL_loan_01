@@ -178,6 +178,61 @@ async function retrieveCustomerProfile(): Promise<CustomerProfile> {
 
 // ─── STEP 5: Slot Filling ────────────────────────────────────────────────────
 
+/**
+ * 자연어/숫자 표현에서 금액(원)을 추출한다.
+ * 지원 포맷:
+ *   N억 M천만 / N억 / 이천만 / N천만 / 천만 / 오백만 / N백만 / 백만
+ *   N만 / 콤마 숫자(1,000,000) / 순수 숫자 5자리 이상(1000000)
+ */
+function parseAmount(text: string): number | undefined {
+  const KR: Record<string, number> = { 일: 1, 이: 2, 삼: 3, 사: 4, 오: 5, 육: 6, 칠: 7, 팔: 8, 구: 9 }
+  let m: RegExpMatchArray | null
+
+  // N억 M천만 (e.g. 1억5천만, 1억 5000만)
+  m = text.match(/(\d+(?:\.\d+)?)\s*억\s*(\d+)\s*천\s*만/)
+  if (m) return Math.round(parseFloat(m[1])) * 100_000_000 + parseInt(m[2]) * 10_000_000
+
+  // N억 (e.g. 1억, 1.5억)
+  m = text.match(/(\d+(?:\.\d+)?)\s*억/)
+  if (m) return Math.round(parseFloat(m[1]) * 100_000_000)
+
+  // 한국어 수사 + 천만 (이천만, 삼천만, 오천만 ...)
+  m = text.match(/([일이삼사오육칠팔구])\s*천\s*만/)
+  if (m) return (KR[m[1]] ?? 1) * 10_000_000
+
+  // N천만 (숫자 접두, e.g. 3천만, 5천만원)
+  m = text.match(/(\d+)\s*천\s*만/)
+  if (m) return parseInt(m[1]) * 10_000_000
+
+  // 천만 단독 (e.g. 천만원)
+  if (/천\s*만/.test(text)) return 10_000_000
+
+  // 한국어 수사 + 백만 (이백만, 오백만 ...)
+  m = text.match(/([일이삼사오육칠팔구])\s*백\s*만/)
+  if (m) return (KR[m[1]] ?? 1) * 1_000_000
+
+  // N백만 (숫자 접두, e.g. 5백만, 100백만)
+  m = text.match(/(\d+)\s*백\s*만/)
+  if (m) return parseInt(m[1]) * 1_000_000
+
+  // 백만 단독 (e.g. 백만원)
+  if (/백\s*만/.test(text)) return 1_000_000
+
+  // N만 (e.g. 500만, 3000만원, 3,000만)
+  m = text.match(/(\d+(?:,\d{3})*)\s*만/)
+  if (m) return parseInt(m[1].replace(/,/g, '')) * 10_000
+
+  // 콤마 구분 숫자 (e.g. 1,000,000원)
+  m = text.match(/(\d{1,3}(?:,\d{3})+)\s*원?/)
+  if (m) return parseInt(m[1].replace(/,/g, ''))
+
+  // 순수 숫자 5자리 이상 (e.g. 10000, 1000000원)
+  m = text.match(/(\d{5,})\s*원?/)
+  if (m) return parseInt(m[1])
+
+  return undefined
+}
+
 function extractSlots(text: string, askingSlot?: string): Partial<ConsultationSlots> {
   const slots: Partial<ConsultationSlots> = {}
 
@@ -195,20 +250,8 @@ function extractSlots(text: string, askingSlot?: string): Partial<ConsultationSl
   }
 
   if (askingSlot === 'desiredAmount' || !askingSlot) {
-    const m =
-      text.match(/(\d+)\s*억\s*(\d+)\s*천/) ||
-      text.match(/(\d+(?:\.\d+)?)\s*억/) ||
-      text.match(/(\d+)\s*천\s*만|(\d+)\s*천만/) ||
-      text.match(/(\d+)\s*백만/) ||
-      text.match(/(\d+(?:,\d{3})*)\s*만/)
-    if (m) {
-      const raw = m[0]
-      if (/억.*천/.test(raw)) slots.desiredAmount = parseInt(m[1]) * 100_000_000 + parseInt(m[2]) * 10_000_000
-      else if (/억/.test(raw)) slots.desiredAmount = Math.round(parseFloat(m[1]) * 100_000_000)
-      else if (/천\s*만|천만/.test(raw)) slots.desiredAmount = parseInt(m[1] ?? m[2]) * 10_000_000
-      else if (/백만/.test(raw)) slots.desiredAmount = parseInt(m[1]) * 1_000_000
-      else slots.desiredAmount = parseInt(m[1].replace(/,/g, '')) * 10_000
-    }
+    const parsed = parseAmount(text)
+    if (parsed !== undefined) slots.desiredAmount = parsed
   }
 
   if (/무보증|보증\s*없/.test(text)) slots.guaranteePreference = 'none'
