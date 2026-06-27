@@ -384,6 +384,9 @@ function buildNaturalResponse(
     return '대출 신청 및 심사 상태는 앱 화면에서 확인하실 수 있습니다.'
   }
   if (candidateProducts.length === 0) {
+    if (slots.desiredAmount) {
+      return `희망 금액${cond}을 충족할 수 있는 상품을 찾지 못했습니다.\n희망 금액을 낮추시거나 상담원 연결을 요청해 주세요.`
+    }
     return `조건${cond}에 해당하는 상품을 찾지 못했습니다. 조건을 변경하거나 상담원 연결을 요청해 주세요.`
   }
   return `상담 조건${cond}을 검토한 결과, 아래 ${candidateProducts.length}건의 상품이 해당될 수 있습니다.\n실제 한도와 금리는 심사 결과에 따라 달라질 수 있습니다.`
@@ -515,7 +518,17 @@ export async function runConsultation(
 
   // ── STEP 9: Candidate Products ────────────────────────────────────────────
   const { masters, policyMap } = await queryProductDetails(productIds)
-  const scored = masters
+
+  // 희망 금액이 상품 최대 한도를 초과하는 상품은 후보에서 제외 (하드 필터)
+  const amountFiltered = masters.filter(row => {
+    const policy = policyMap[row.productId]
+    if (slots.desiredAmount && policy?.maxAmount && slots.desiredAmount > policy.maxAmount) {
+      return false
+    }
+    return true
+  })
+
+  const scored = amountFiltered
     .map(row => ({ row, score: scoreProduct(policyMap[row.productId], slots) }))
     .sort((a, b) => b.score - a.score)
     .slice(0, 3)
