@@ -1,0 +1,7 @@
+node_modules/
+.env
+.DS_Store
+.agents/
+.mcp.json
+skills-lock.json
+supabase/.temp/
