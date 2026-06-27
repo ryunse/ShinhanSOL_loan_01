@@ -24,7 +24,7 @@ export default function RuntimeDebugPanel({ data }: Props) {
 
   if (!data) return null
 
-  const { step, debug, products, eligibilityNotes } = data
+  const { step, debug, candidateProducts, eligibilityConditions } = data
 
   return (
     <div className="border-t border-gray-200 bg-gray-50">
@@ -52,7 +52,7 @@ export default function RuntimeDebugPanel({ data }: Props) {
               intent: {debug.intent}
             </span>
             <span className="text-[11px] bg-gray-100 text-gray-600 rounded-full px-2 py-0.5 font-mono">
-              products: {products.length}
+              candidates: {candidateProducts.length}
             </span>
             <span className="text-[11px] bg-gray-100 text-gray-500 rounded-full px-2 py-0.5 font-mono">
               mode: {debug.searchMode}
@@ -67,9 +67,14 @@ export default function RuntimeDebugPanel({ data }: Props) {
                 </span>
               ) : null
             )}
-            {eligibilityNotes.length > 0 && (
+            {eligibilityConditions.length > 0 && (
               <span className="text-[11px] bg-red-100 text-red-600 rounded-full px-2 py-0.5 font-mono">
-                rules: {eligibilityNotes.length}건
+                eligibility: {eligibilityConditions.length}건
+              </span>
+            )}
+            {debug.consultationGoal && (
+              <span className="text-[11px] bg-green-100 text-green-700 rounded-full px-2 py-0.5 font-mono">
+                goal: {debug.consultationGoal}
               </span>
             )}
           </div>

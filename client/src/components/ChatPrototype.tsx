@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { runConsultation, ConsultationState, ConsultationOutput, EligibilityResult } from '@/services/consultationEngine'
+import { runConsultation, ConsultationState, ConsultationOutput, EligibilityCondition } from '@/services/consultationEngine'
 import { CTAInfo } from '@/services/loanRuntimeService'
 import ProductRecommendationCard from './ProductRecommendationCard'
 import RuntimeDebugPanel from './RuntimeDebugPanel'
@@ -20,15 +20,15 @@ const SAMPLE_UTTERANCES = [
   '보증서대출 서류 뭐 필요해?',
 ]
 
-function EligibilityNotes({ notes }: { notes: EligibilityResult[] }) {
+function EligibilityNotes({ notes }: { notes: EligibilityCondition[] }) {
   if (!notes.length) return null
   return (
     <div className="bg-amber-50 border border-amber-200 rounded-2xl rounded-tl-sm px-3.5 py-2.5 space-y-1.5">
-      <p className="text-[11px] font-semibold text-amber-700">신청 조건 확인사항</p>
+      <p className="text-[11px] font-semibold text-amber-700">자격 분석 — 신청 조건 확인사항</p>
       {notes.map(n => (
         <div key={n.ruleId} className="flex gap-1.5">
-          <span className={`text-[10px] mt-0.5 ${n.status === 'warn' ? 'text-red-500' : 'text-amber-500'}`}>
-            {n.status === 'warn' ? '●' : '○'}
+          <span className={`text-[10px] mt-0.5 ${n.severity === 'blocking' ? 'text-red-500' : 'text-amber-500'}`}>
+            {n.severity === 'blocking' ? '●' : '○'}
           </span>
           <div>
             <p className="text-[11px] text-amber-800 font-medium">{n.ruleName}</p>
@@ -144,11 +144,11 @@ export default function ChatPrototype() {
                     {msg.output.message}
                   </div>
 
-                  {/* 적격성 조건 */}
-                  <EligibilityNotes notes={msg.output.eligibilityNotes} />
+                  {/* 자격 분석 조건 */}
+                  <EligibilityNotes notes={msg.output.eligibilityConditions} />
 
-                  {/* 상품 카드 */}
-                  {msg.output.products.map(product => (
+                  {/* 후보 상품 카드 */}
+                  {msg.output.candidateProducts.map(product => (
                     <ProductRecommendationCard
                       key={product.productId}
                       product={product}
@@ -157,7 +157,7 @@ export default function ChatPrototype() {
                   ))}
 
                   {/* 면책 문구 */}
-                  {msg.output.products.length > 0 && (
+                  {msg.output.candidateProducts.length > 0 && (
                     <p className="text-[10px] text-gray-400 px-1 leading-relaxed">
                       {msg.output.disclaimer}
                     </p>

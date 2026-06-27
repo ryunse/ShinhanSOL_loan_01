@@ -1,24 +1,26 @@
 {
   "service": {
-    "serviceName": "대출상담 및 상품추천",
-    "version": "2.1-refactored",
-    "intent": "loan_consultation_and_recommendation",
-    "serviceType": "ai_loan_advisory",
+    "serviceName": "대출상담 AI Agent",
+    "version": "3.0-consultation-first",
+    "intent": "loan_consultation",
+    "serviceType": "ai_loan_consultant",
     "domain": "loan",
     "channel": [
       "신한쏠비즈"
     ],
-    "description": "사용자 발화를 기반으로 상품 DB를 조회하고 추천·상담·신청 화면 이동 CTA를 생성하는 대출상담 공통 AI 정책"
+    "description": "고객의 금융 목표를 중심으로 상담을 진행하고, 자격 분석 후 후보 상품을 안내하며 뱅킹 워크플로우로 연결하는 대출상담 AI Agent 정책"
   },
   "runtime": {
-    "mode": "db_driven_routing",
+    "mode": "consultation_driven_workflow",
     "useProductJson": false,
     "useFlowMapping": false,
-    "executionType": "screen_navigation_cta",
+    "executionType": "business_goal_cta",
     "principles": [
-      "상품별 JSON은 런타임에서 사용하지 않는다.",
-      "상품 정보와 정책은 DB를 기준으로 조회한다.",
-      "화면 순서가 아니라 사용자 의도 기반 routing_map으로 목적 화면을 결정한다.",
+      "상담(Consultation)이 먼저다. 상품 추천으로 대화를 시작하지 않는다.",
+      "상품 정보는 반드시 DB 기준으로 조회한다. 상품별 JSON은 사용하지 않는다.",
+      "화면 순서가 아니라 비즈니스 목표 기반 워크플로우로 처리한다.",
+      "LLM은 자연어 생성만 담당한다. 비즈니스 로직은 결정론적으로 처리한다.",
+      "고객 정보는 프로필·기존 거래·이전 상담에서 먼저 조회하고, 부족한 정보만 질문한다.",
       "대출 신청, 약정, 실행은 채팅창이 아니라 앱 화면 이동 CTA를 통해 진행한다.",
       "상품 추가 시 loan_common.json은 수정하지 않고 DB Row를 추가한다."
     ]
@@ -60,11 +62,22 @@
   },
   "intentPolicy": {
     "primaryIntent": "loan_consultation",
+    "description": "AI는 상담 유형(consultationType)을 먼저 파악하고, 고객 목표 기반 워크플로우를 실행한다. 상품 추천을 먼저 제시하지 않는다.",
     "supportedIntents": [
       {
-        "intent": "loan_recommendation",
-        "description": "조건에 맞는 대출상품 추천",
-        "nextAction": "recommendProducts"
+        "intent": "loan_consultation",
+        "description": "대출 상담 시작 (목표 불명확, 워크플로우 분기 시작점)",
+        "nextAction": "identifyConsultationGoal"
+      },
+      {
+        "intent": "loan_eligibility_check",
+        "description": "대출 가능 여부 확인 — 조건 수집 후 자격 분석",
+        "nextAction": "evaluateEligibility"
+      },
+      {
+        "intent": "loan_product_comparison",
+        "description": "대출 상품 비교 — 후보 상품 나란히 안내",
+        "nextAction": "compareCandidateProducts"
       },
       {
         "intent": "loan_product_inquiry",
@@ -74,12 +87,7 @@
       {
         "intent": "loan_application",
         "description": "대출 신청 또는 한도조회 화면 이동",
-        "nextAction": "generateRoutingCTA"
-      },
-      {
-        "intent": "loan_eligibility_check",
-        "description": "신청 가능 여부 확인",
-        "nextAction": "checkEligibility"
+        "nextAction": "generateBusinessActionCTA"
       },
       {
         "intent": "loan_document_inquiry",
@@ -99,52 +107,146 @@
     ],
     "fallback": {
       "condition": "intentConfidence < threshold",
-      "action": "askClarifyingQuestion",
-      "message": "대출상품 추천, 신청 가능 여부 확인, 필요서류 안내, 신청 화면 이동 중 어떤 도움이 필요하신가요?"
+      "action": "askConsultationGoal",
+      "message": "어떤 대출 상담이 필요하신가요? 대출 가능 여부 확인, 상품 비교, 서류 안내, 신청 화면 이동 중 도움을 드릴 수 있습니다."
+    }
+  },
+  "consultationWorkflowPolicy": {
+    "description": "고객 목표 기반 상담 워크플로우 정의. AI는 상담 유형을 파악한 후 해당 워크플로우를 실행한다.",
+    "consultationGoalExamples": [
+      "사업자 대출 상담",
+      "보증서 대출 상담",
+      "신용 대출 상담",
+      "대출 가능 여부 확인",
+      "대출 갈아타기 상담",
+      "대출 상품 비교"
+    ],
+    "workflowTemplate": {
+      "steps": [
+        "고객 목표 확인",
+        "필요 상담 정보 수집 (Slot Filling)",
+        "자격 분석 (Eligibility Check)",
+        "후보 상품 안내 (Candidate Products)",
+        "비교 및 설명 (Comparison & Explanation)",
+        "다음 비즈니스 액션 연결 (Business Action)"
+      ]
+    },
+    "neverStartWith": [
+      "상품 추천",
+      "상품 목록 나열",
+      "CTA 즉시 생성"
+    ]
+  },
+  "consultationStatePolicy": {
+    "description": "AI는 대화 전반에 걸쳐 상담 진행 상태를 유지한다.",
+    "stateFields": [
+      {
+        "field": "consultationGoal",
+        "description": "고객이 원하는 상담 목표 (예: 사업자신용대출상담)"
+      },
+      {
+        "field": "currentStep",
+        "description": "현재 상담 단계 (intent_detection / slot_filling / validation / business_rule / api_query / candidate_products / business_action / complete)"
+      },
+      {
+        "field": "collectedSlots",
+        "description": "수집 완료된 상담 정보"
+      },
+      {
+        "field": "remainingSlots",
+        "description": "아직 수집되지 않은 필수 상담 정보"
+      },
+      {
+        "field": "candidateProducts",
+        "description": "자격 분석 후 도출된 후보 상품 목록"
+      },
+      {
+        "field": "eligibilityResult",
+        "description": "eligible / conditionallyEligible / notEligible / needMoreInfo"
+      },
+      {
+        "field": "nextAction",
+        "description": "다음 비즈니스 액션 (화면 이동, 상담원 연결, 추가 정보 수집 등)"
+      }
+    ]
+  },
+  "customerProfilePolicy": {
+    "description": "고객에게 질문하기 전 이용 가능한 고객 정보를 먼저 조회한다. 조회 불가한 정보만 질문한다.",
+    "retrievalPriority": [
+      {
+        "priority": 1,
+        "source": "customerProfile",
+        "description": "고객 기본 프로필 (고객 유형, 사업자 구분 등)"
+      },
+      {
+        "priority": 2,
+        "source": "existingBankingInfo",
+        "description": "기존 거래 정보 (계좌, 대출 현황, 거래 이력 등)"
+      },
+      {
+        "priority": 3,
+        "source": "previousConsultation",
+        "description": "이전 상담 내역 및 수집된 슬롯"
+      },
+      {
+        "priority": 4,
+        "source": "askCustomer",
+        "description": "조회 불가한 정보만 고객에게 직접 질문"
+      }
+    ],
+    "slotSourceConfig": {
+      "description": "각 슬롯은 preferred_source, fallback, required 여부를 정의한다.",
+      "example": {
+        "slotKey": "customerType",
+        "preferred_source": "customerProfile",
+        "fallback": "askCustomer",
+        "required": true
+      }
     }
   },
   "globalSlots": {
-    "serviceName": "대출상담 및 상품추천",
-    "intent": "loan_consultation_and_recommendation",
+    "serviceName": "대출상담 AI Agent",
+    "intent": "loan_consultation",
     "mode": "reference",
     "source": "slot_definition",
-    "description": "추천 및 신청에 필요한 Slot은 slot_definition DB에서 관리한다. loan_common.json은 공통 Slot 참조 정책만 정의한다.",
+    "description": "상담 및 자격 분석에 필요한 상담 슬롯(Consultation Slot)은 slot_definition DB에서 관리한다. loan_common.json은 공통 슬롯 참조 정책만 정의한다.",
     "requiredGroups": [
-      "requiredForRecommendation",
-      "optionalForRecommendation"
+      "requiredForConsultation",
+      "optionalForConsultation"
     ],
     "runtimePolicy": {
       "loadOnIntent": true,
       "loadCondition": "intent startsWith 'loan_'",
       "missingSlotStrategy": "askOneAtATime",
-      "sensitiveSlotStrategy": "screenOnly"
+      "sensitiveSlotStrategy": "screenOnly",
+      "customerProfileFirstStrategy": "retrieveBeforeAsking"
     },
     "slotGroups": [
       {
-        "group": "requiredForRecommendation",
-        "description": "상품 추천을 위해 반드시 필요한 Slot",
-        "sourcePolicy": "slotPolicy.requiredForRecommendation"
+        "group": "requiredForConsultation",
+        "description": "상담 및 자격 분석을 위해 반드시 필요한 상담 슬롯",
+        "sourcePolicy": "slotPolicy.requiredForConsultation"
       },
       {
-        "group": "optionalForRecommendation",
-        "description": "추천 정확도를 높이기 위한 선택 Slot",
-        "sourcePolicy": "slotPolicy.optionalForRecommendation"
+        "group": "optionalForConsultation",
+        "description": "상담 정확도를 높이기 위한 선택 상담 슬롯",
+        "sourcePolicy": "slotPolicy.optionalForConsultation"
       },
       {
         "group": "applicationSlots",
-        "description": "상품 신청 단계에서 screen_mapping 또는 실제 앱 화면을 통해 수집되는 Slot",
+        "description": "상품 신청 단계에서 앱 화면을 통해 수집되는 슬롯",
         "sourcePolicy": "screen_mapping"
       }
     ]
   },
   "slotPolicy": {
     "slotSource": "slot_definition",
-    "requiredForRecommendation": [
+    "requiredForConsultation": [
       "customerType",
       "loanPurpose",
       "desiredAmount"
     ],
-    "optionalForRecommendation": [
+    "optionalForConsultation": [
       "businessCategory",
       "businessOpenDate",
       "businessLocation",
@@ -169,7 +271,34 @@
       "authCode"
     ]
   },
-  "productSearchPolicy": {
+  "candidateProductPolicy": {
+    "description": "후보 상품은 자격 분석 완료 후에만 도출한다. AI는 상품을 개인화된 금융 추천으로 표현하지 않고, 상품 안내 및 비교 정보로 제공한다.",
+    "maxCandidateProducts": 3,
+    "generationCondition": "eligibilityAnalysisCompleted",
+    "mustInclude": [
+      "productName",
+      "suitabilityExplanation",
+      "eligibilitySummary",
+      "amountRange",
+      "repaymentOptions",
+      "advantages",
+      "limitations",
+      "requiredDocuments",
+      "nextBusinessAction"
+    ],
+    "optionalInclude": [
+      "consents",
+      "menuPath",
+      "applicationChannel"
+    ],
+    "mustNotInclude": [
+      "confirmedApproval",
+      "confirmedLimit",
+      "confirmedInterestRate",
+      "guaranteedLoanExecution",
+      "applicationCompletedWithoutUserAction"
+    ],
+    "disclaimer": "안내드린 상품 정보는 상담 정보와 상품 조건을 기준으로 한 안내이며, 실제 대출 가능 여부와 한도, 금리는 심사 결과에 따라 달라질 수 있습니다.",
     "searchOrder": [
       "directProductNameMatch",
       "keywordMatch",
@@ -179,25 +308,18 @@
       "amountRangeMatch",
       "routingAvailabilityCheck"
     ],
-    "sources": [
-      "product_master",
-      "product_search_keyword",
-      "product_policy",
-      "eligibility_rules",
-      "routing_map"
-    ],
     "rankingCriteria": [
       {
-        "criterion": "intentMatch",
-        "weight": 30
+        "criterion": "eligibilityMatch",
+        "weight": 35
       },
       {
-        "criterion": "eligibilityMatch",
-        "weight": 30
+        "criterion": "consultationGoalMatch",
+        "weight": 25
       },
       {
         "criterion": "amountFit",
-        "weight": 15
+        "weight": 20
       },
       {
         "criterion": "categoryFit",
@@ -205,44 +327,113 @@
       },
       {
         "criterion": "informationCompleteness",
-        "weight": 10
+        "weight": 5
       }
     ],
     "fallback": {
-      "noProductMatched": "askClarifyingQuestion",
-      "multipleProductsMatched": "showTopCandidates",
-      "insufficientCustomerInfo": "askMissingSlotQuestion",
-      "inactiveProductMatched": "showUnavailableAndSuggestAlternative"
+      "noCandidateFound": "askClarifyingQuestion",
+      "multipleCandidatesFound": "showTopCandidatesWithComparison",
+      "insufficientCustomerInfo": "askMissingConsultationSlot",
+      "inactiveCandidateFound": "showUnavailableAndSuggestAlternative"
     }
+  },
+  "comparisonPolicy": {
+    "description": "AI는 후보 상품 비교를 1차 기능으로 지원한다. 상품 추천은 비교 결과의 부가 안내이다.",
+    "comparisonDimensions": [
+      "eligibilityConditions",
+      "loanAmountRange",
+      "interestRateType",
+      "repaymentOptions",
+      "requiredDocuments",
+      "applicationChannel",
+      "guaranteeRequirement",
+      "advantages",
+      "limitations"
+    ],
+    "comparisonActions": [
+      {
+        "action": "guide",
+        "description": "상품 조건 안내"
+      },
+      {
+        "action": "compare",
+        "description": "두 상품 이상 나란히 비교"
+      },
+      {
+        "action": "explainDifference",
+        "description": "차이점 설명"
+      },
+      {
+        "action": "checkEligibility",
+        "description": "각 상품 자격 조건 확인"
+      },
+      {
+        "action": "showDocuments",
+        "description": "필요서류 안내"
+      },
+      {
+        "action": "explainApplicationMethod",
+        "description": "신청 방법 안내"
+      }
+    ]
   },
   "eligibilityPolicy": {
     "source": "eligibility_rules",
     "resultTypes": [
-      "eligible",
-      "notEligible",
-      "needMoreInformation",
-      "manualReviewRequired",
-      "consultationRequired"
-    ],
-    "notEligibleAction": "showReasonAndSuggestAlternative",
-    "unknownAction": "askMissingSlotOrConnectCounselor"
-  },
-  "ruleEngine": {
-    "description": "AI 오케스트레이터가 상품 추천 및 CTA 생성을 위해 적용하는 공통 판단 규칙",
-    "rules": [
       {
-        "id": "CHECK_PRODUCT_DIRECT_MATCH",
-        "priority": 100,
-        "condition": "utterance contains productName or productKeyword",
-        "success": "loadProductByKeyword",
-        "fail": "goToProductRecommendation"
+        "type": "eligible",
+        "description": "신청 조건 충족"
       },
       {
-        "id": "CHECK_REQUIRED_SLOTS",
+        "type": "conditionallyEligible",
+        "description": "조건부 충족 — 추가 심사 또는 서류 필요"
+      },
+      {
+        "type": "notEligible",
+        "description": "신청 조건 미충족"
+      },
+      {
+        "type": "needMoreInformation",
+        "description": "추가 정보 수집 후 판단 가능"
+      },
+      {
+        "type": "manualReviewRequired",
+        "description": "자동 판단 불가 — 영업점 또는 상담원 연결 필요"
+      }
+    ],
+    "notEligibleAction": "showReasonAndSuggestAlternative",
+    "unknownAction": "askMissingConsultationSlotOrConnectCounselor"
+  },
+  "ruleEngine": {
+    "description": "AI 오케스트레이터가 상담 처리 및 후보 상품 도출을 위해 적용하는 결정론적 판단 규칙. LLM이 아닌 코드 레벨에서 실행한다.",
+    "rules": [
+      {
+        "id": "IDENTIFY_CONSULTATION_GOAL",
+        "priority": 100,
+        "condition": "consultationGoal is not set",
+        "success": "proceedToSlotCollection",
+        "fail": "askConsultationGoal"
+      },
+      {
+        "id": "LOAD_CUSTOMER_PROFILE",
+        "priority": 95,
+        "condition": "customerProfile available",
+        "success": "mergeProfileToSlots",
+        "fail": "proceedWithEmptyProfile"
+      },
+      {
+        "id": "CHECK_REQUIRED_CONSULTATION_SLOTS",
         "priority": 90,
-        "condition": "requiredSlots has no missingValue",
-        "success": "proceedToProductMatching",
-        "fail": "askMissingSlotQuestion"
+        "condition": "requiredConsultationSlots has no missingValue",
+        "success": "proceedToEligibilityCheck",
+        "fail": "askNextMissingConsultationSlot"
+      },
+      {
+        "id": "VALIDATE_SLOT_VALUES",
+        "priority": 85,
+        "condition": "collectedSlots pass validation rules",
+        "success": "proceedToBusinessRules",
+        "fail": "askSlotAgainWithValidationMessage"
       },
       {
         "id": "CHECK_CUSTOMER_TYPE",
@@ -266,52 +457,29 @@
         "fail": "markProductIneligibleWithReason"
       },
       {
-        "id": "CHECK_ROUTE_BY_INTENT_AND_PRODUCT",
+        "id": "DERIVE_CANDIDATE_PRODUCTS",
         "priority": 50,
-        "condition": "productId != null && intent != null",
-        "success": "loadRoutingMap",
+        "condition": "eligibilityAnalysisCompleted",
+        "success": "rankAndReturnCandidateProducts",
         "fail": "askClarifyingQuestion"
       },
       {
-        "id": "CHECK_SCREEN_MAPPING",
+        "id": "DETERMINE_NEXT_BUSINESS_ACTION",
         "priority": 40,
-        "condition": "targetScreenId exists in screen_mapping",
-        "success": "loadScreenMapping",
-        "fail": "fallbackToProductDetailOrCounselor"
+        "condition": "candidateProducts exist && consultationGoalMet",
+        "success": "generateBusinessActionCTA",
+        "fail": "connectCounselorOrAskMoreInfo"
       }
     ]
   },
-  "recommendationPolicy": {
-    "maxRecommendedProducts": 3,
-    "mustInclude": [
-      "productName",
-      "recommendationReason",
-      "eligibilitySummary",
-      "amountRange",
-      "repaymentOptions",
-      "nextCTA"
-    ],
-    "optionalInclude": [
-      "documents",
-      "consents",
-      "menuPath"
-    ],
-    "mustNotInclude": [
-      "confirmedApproval",
-      "confirmedLimit",
-      "confirmedInterestRate",
-      "guaranteedLoanExecution",
-      "applicationCompletedWithoutUserAction"
-    ],
-    "disclaimer": "추천 결과는 입력하신 정보와 상품 조건을 기준으로 한 안내이며, 실제 대출 가능 여부와 한도, 금리는 심사 결과에 따라 달라질 수 있습니다."
-  },
   "routingPolicy": {
+    "description": "화면 이동은 비즈니스 액션의 결과이다. 화면 순서가 상담 흐름을 결정하지 않는다.",
     "source": "routing_map",
     "screenSource": "screen_mapping",
     "matchKeys": [
-      "intent",
       "productId",
-      "actionType"
+      "actionType",
+      "screenType"
     ],
     "requiredResultFields": [
       "targetScreenId",
@@ -322,7 +490,7 @@
     "fallback": {
       "noRouteMatched": {
         "action": "showProductDetailOrConnectCounselor",
-        "message": "해당 요청에 바로 이동할 수 있는 화면을 찾지 못했습니다. 상품 상세를 먼저 확인하거나 상담원 연결을 도와드릴 수 있습니다."
+        "message": "해당 요청에 이동할 수 있는 화면을 찾지 못했습니다. 상품 상세 확인 또는 상담원 연결을 도와드릴 수 있습니다."
       },
       "screenNotFound": {
         "action": "connectCounselor",
@@ -348,6 +516,7 @@
     "responseRule": "필수/선택 약관을 구분하여 안내하고, 실제 동의는 앱 화면에서 진행하도록 안내한다."
   },
   "ctaPolicy": {
+    "description": "CTA는 비즈니스 액션의 결과로 생성된다. 상담 완료 전 CTA를 선제적으로 생성하지 않는다.",
     "defaultAction": "navigate",
     "outputFormat": {
       "label": "{ctaLabel}",
@@ -356,12 +525,6 @@
       "targetScreenName": "{targetScreenName}"
     },
     "ctaTypes": [
-      {
-        "ctaId": "viewProductDetail",
-        "label": "상품 자세히 보기",
-        "action": "navigate",
-        "source": "routing_map"
-      },
       {
         "ctaId": "checkEligibility",
         "label": "신청 가능 여부 확인",
@@ -393,6 +556,11 @@
         "source": "consent_mapping"
       },
       {
+        "ctaId": "compareProducts",
+        "label": "상품 비교하기",
+        "action": "showComparison"
+      },
+      {
         "ctaId": "connectCounselor",
         "label": "상담원 연결",
         "action": "connectCounselor"
@@ -404,7 +572,8 @@
       "대출 승인, 한도, 금리를 확정적으로 표현하지 않는다.",
       "고객 신용도, 소득, 매출, 심사 결과에 따라 달라질 수 있음을 안내한다.",
       "보증부대출의 경우 보증심사와 은행심사가 별도로 진행될 수 있음을 안내한다.",
-      "필수 약관 및 동의 없이 신청 완료 또는 실행 완료로 안내하지 않는다."
+      "필수 약관 및 동의 없이 신청 완료 또는 실행 완료로 안내하지 않는다.",
+      "AI가 개인화된 금융 추천을 제공한다는 표현을 사용하지 않는다."
     ],
     "privacy": [
       "주민등록번호, 계좌번호, 휴대폰번호 등 민감정보는 마스킹 처리한다.",
@@ -420,175 +589,165 @@
       "상품 조건, 한도, 금리, 서류, 약관은 DB에 등록된 값을 우선 사용한다.",
       "DB에 없는 조건은 추정하지 않는다.",
       "상품 정책 변경 가능성이 있는 항목은 최신 DB 기준으로 응답한다."
+    ],
+    "consultationControl": [
+      "고객 목표를 파악하기 전에 상품 목록을 먼저 제시하지 않는다.",
+      "자격 분석 완료 전에 후보 상품을 확정적으로 안내하지 않는다.",
+      "불필요한 질문을 하지 않는다. 프로필에서 조회 가능한 정보는 질문하지 않는다."
     ]
   },
-  "orchestration": [
-    {
-      "order": 1,
-      "stepId": "UNDERSTAND_UTTERANCE",
-      "action": "extractIntentAndSlots"
-    },
-    {
-      "order": 2,
-      "stepId": "SEARCH_PRODUCT",
-      "action": "searchProductCatalog"
-    },
-    {
-      "order": 3,
-      "stepId": "CHECK_REQUIRED_SLOTS",
-      "action": "checkRequiredSlots"
-    },
-    {
-      "order": 4,
-      "stepId": "CHECK_POLICY",
-      "action": "loadProductPolicy"
-    },
-    {
-      "order": 5,
-      "stepId": "CHECK_ELIGIBILITY",
-      "action": "evaluateEligibilityRules"
-    },
-    {
-      "order": 6,
-      "stepId": "RANK_PRODUCTS",
-      "action": "rankProducts"
-    },
-    {
-      "order": 7,
-      "stepId": "LOAD_ROUTING",
-      "action": "loadRoutingMap"
-    },
-    {
-      "order": 8,
-      "stepId": "LOAD_SCREEN",
-      "action": "loadScreenMapping"
-    },
-    {
-      "order": 9,
-      "stepId": "GENERATE_RESPONSE",
-      "action": "generateResponseAndCTA"
-    }
-  ],
-  "chatbotFlow": {
-    "description": "대출상담 및 상품추천 AI의 챗봇 기준 처리 순서. 채팅방 내에서 실제 신청을 완료하지 않고, 상품 추천과 화면 이동 CTA 생성을 수행한다.",
+  "orchestration": {
+    "description": "워크플로우 전 LLM을 호출하지 않는다. LLM은 자연어 응답 생성 단계에서만 사용한다.",
     "steps": [
       {
         "order": 1,
-        "id": "UNDERSTAND_INTENT",
-        "label": "사용자 발화 분석",
-        "action": "extractIntentAndSlots"
+        "stepId": "DETECT_INTENT",
+        "action": "extractIntentFromUtterance",
+        "executor": "deterministic"
       },
       {
         "order": 2,
-        "id": "LOAD_PRODUCT_DB",
-        "label": "상품 DB 조회",
-        "action": "searchProductCatalog"
+        "stepId": "SELECT_CONSULTATION_WORKFLOW",
+        "action": "identifyConsultationGoalAndSelectWorkflow",
+        "executor": "deterministic"
       },
       {
         "order": 3,
-        "id": "LOAD_GLOBAL_SLOTS",
-        "label": "공통 Slot 로드",
-        "action": "loadSlotDefinition"
+        "stepId": "LOAD_CUSTOMER_PROFILE",
+        "action": "retrieveCustomerProfileAndBankingInfo",
+        "executor": "api",
+        "fallback": "proceedWithEmptyProfile"
       },
       {
         "order": 4,
-        "id": "COLLECT_REQUIRED_SLOTS",
-        "label": "필수 정보 수집",
-        "action": "askMissingSlotQuestion"
+        "stepId": "INITIALIZE_CONSULTATION_STATE",
+        "action": "initOrResumeConsultationState",
+        "executor": "deterministic"
       },
       {
         "order": 5,
-        "id": "CHECK_ELIGIBILITY",
-        "label": "신청 가능 조건 확인",
-        "action": "evaluateEligibilityRules"
+        "stepId": "FILL_CONSULTATION_SLOTS",
+        "action": "extractAndMergeSlots",
+        "executor": "deterministic",
+        "loop": "askOneAtATime until allRequiredSlotsFilled"
       },
       {
         "order": 6,
-        "id": "RANK_PRODUCTS",
-        "label": "상품 추천",
-        "action": "rankProducts"
+        "stepId": "VALIDATE_SLOTS",
+        "action": "validateConsultationSlotValues",
+        "executor": "deterministic",
+        "onFail": "askSlotAgainWithMessage"
       },
       {
         "order": 7,
-        "id": "LOAD_ROUTING",
-        "label": "화면 Routing 조회",
-        "action": "loadRoutingMap"
+        "stepId": "EVALUATE_BUSINESS_RULES",
+        "action": "evaluateEligibilityRules",
+        "executor": "deterministic",
+        "source": "eligibility_rules"
       },
       {
         "order": 8,
-        "id": "LOAD_SCREEN_MAPPING",
-        "label": "Screen Mapping 조회",
-        "action": "loadScreenMapping"
+        "stepId": "QUERY_API",
+        "action": "searchProductCatalogAndPolicy",
+        "executor": "api",
+        "sources": ["product_master", "product_policy", "product_search_keyword"]
       },
       {
         "order": 9,
-        "id": "GENERATE_CTA",
-        "label": "화면 이동 CTA 생성",
-        "action": "generateNavigationCTA"
+        "stepId": "ANALYZE_CANDIDATE_PRODUCTS",
+        "action": "rankAndFilterCandidateProducts",
+        "executor": "deterministic"
+      },
+      {
+        "order": 10,
+        "stepId": "DETERMINE_BUSINESS_ACTION",
+        "action": "loadRoutingMapAndGenerateCTA",
+        "executor": "deterministic",
+        "source": "routing_map"
+      },
+      {
+        "order": 11,
+        "stepId": "GENERATE_NATURAL_RESPONSE",
+        "action": "generateConsultationResponse",
+        "executor": "llm",
+        "note": "LLM은 이 단계에서만 호출된다."
       }
     ]
   },
   "flowSummary": {
-    "description": "대출상담 AI 공통 처리 흐름 요약. 화면 순서 기반 플로우가 아니라 사용자 의도 기반 DB 조회 및 화면 이동 CTA 생성 흐름이다.",
+    "description": "대출상담 AI Agent 공통 처리 흐름. 상담(Consultation)이 먼저이며, 후보 상품은 자격 분석 완료 후 안내한다.",
     "steps": [
       {
         "order": 1,
         "label": "사용자 발화",
-        "description": "대출 추천, 상품 문의, 신청 가능 여부, 필요서류, 약관, 신청 화면 이동 의도 감지"
+        "description": "상담 목표, 자격 확인, 상품 비교, 서류, 약관, 신청 의도 감지"
       },
       {
         "order": 2,
-        "label": "Intent 분석",
-        "description": "loan_recommendation, loan_product_inquiry, loan_application 등 하위 의도 판단"
+        "label": "Intent 감지",
+        "description": "loan_consultation, loan_eligibility_check, loan_product_comparison 등 분류"
       },
       {
         "order": 3,
-        "label": "상품 DB 조회",
-        "description": "product_master, product_search_keyword, product_policy 조회"
+        "label": "상담 워크플로우 선택",
+        "description": "고객 목표에 맞는 상담 유형 및 워크플로우 결정"
       },
       {
         "order": 4,
-        "label": "Slot 수집",
-        "description": "slot_definition 및 slotPolicy 기준 부족 정보 확인"
+        "label": "상담 상태 초기화 / 복원",
+        "description": "이전 상담 상태 복원 또는 신규 상담 상태 초기화"
       },
       {
         "order": 5,
-        "label": "신청 가능 조건 확인",
-        "description": "eligibility_rules 기준 적합/부적합/추가정보 필요 판단"
+        "label": "상담 슬롯 수집",
+        "description": "프로필 조회 후 부족한 정보만 한 번에 하나씩 질문"
       },
       {
         "order": 6,
-        "label": "추천상품 산출",
-        "description": "rankingCriteria 기준 최대 3개 상품 추천"
+        "label": "슬롯 검증",
+        "description": "수집된 슬롯 값 유효성 검증, 실패 시 재질문"
       },
       {
         "order": 7,
-        "label": "Routing Map 조회",
-        "description": "intent, productId, actionType 기준 targetScreenId와 ctaLabel 조회"
+        "label": "자격 분석 (Business Rule)",
+        "description": "eligibility_rules 기준 적합/조건부적합/부적합 판단"
       },
       {
         "order": 8,
-        "label": "Screen Mapping 조회",
-        "description": "targetScreenId 기준 화면명, 화면유형, 팝업 여부 등 확인"
+        "label": "API 조회",
+        "description": "product_master, product_policy, product_search_keyword 조회"
       },
       {
         "order": 9,
-        "label": "CTA 생성",
-        "description": "신한쏠비즈 앱 화면 이동용 CTA 생성"
+        "label": "후보 상품 분석",
+        "description": "자격 기준 후보 상품 선정, 비교 정보 준비"
+      },
+      {
+        "order": 10,
+        "label": "비즈니스 액션 결정",
+        "description": "routing_map 기준 다음 비즈니스 액션 및 CTA 생성"
+      },
+      {
+        "order": 11,
+        "label": "자연어 응답 생성",
+        "description": "LLM이 상담 결과를 자연어로 변환하여 응답 (LLM 호출은 이 단계만)"
       }
     ]
   },
   "runtimeOutput": {
     "fields": [
+      "consultationGoal",
       "intent",
-      "confidence",
-      "productId",
-      "productName",
+      "currentStep",
+      "collectedSlots",
+      "remainingSlots",
       "eligibilityResult",
-      "recommendationReason",
-      "missingSlots",
+      "candidateProducts",
+      "suitabilityExplanation",
+      "comparisonSummary",
       "documents",
       "consents",
+      "nextBusinessAction",
       "targetScreenId",
       "targetScreenName",
       "ctaLabel",
