@@ -1,3 +1,3 @@
-﻿productId,loanType,targetCustomer,loanPurpose,collateralOrGuarantee,guaranteeRequired,guaranteeAgencyType,minAmount,maxAmount,amountStep,stampTaxCondition,rateType,baseRateOptions,repaymentOptions,applicationChannel
-LOAN_DDANGYO_SOHO,개인사업자 신용대출,땡겨요 입점 개인사업자,운전자금,신용,N,,1000000,30000000,,대출금액 5천만원 초과 시 인지세 발생 가능,시장금리 변동,"CD91일물, 금융채6개월물","일시상환, 원금균등분할상환",신한쏠비즈 비대면
-LOAN_REGIONAL_GUARANTEE,보증부 사업자대출,개인사업자,운전자금/시설자금/창업자금,지역신용보증재단 보증,Y,지역신용보증재단,5000000,70000000,100000,대출금액 5천만원 초과 시 인지세 발생 가능,시장금리부 변동,"CD91일물, 금융채6개월물","거치 후 원금분할상환, 일시상환 화면값 존재",신한쏠비즈 비대면 + 재단 상담/심사
+productId,loanType,targetCustomer,loanPurpose,collateralOrGuarantee,guaranteeRequired,guaranteeAgencyType,minAmount,maxAmount,amountStep,stampTaxCondition,rateType,baseRateOptions,repaymentOptions,applicationChannel,minRate,maxRate,rateBaseDate,maxTerm
+LOAN_DDANGYO_SOHO,개인사업자 신용대출,개업년월일 6개월 이상인 신한 배달앱(땡겨요) 입점사업자,운전자금,신용,N,,1000000,30000000,,대출금액 5천만원 초과 시 인지세 발생 가능,시장금리 변동,"CD91일물, 금융채6개월물","일시상환, 원금균등분할상환",신한쏠비즈 비대면,4.73,7.37,2025.10.23,36개월
+LOAN_REGIONAL_GUARANTEE,보증부 사업자대출,개인사업자,운전자금/시설자금/창업자금,지역신용보증재단 보증,Y,지역신용보증재단,5000000,70000000,100000,대출금액 5천만원 초과 시 인지세 발생 가능,시장금리부 변동,"CD91일물, 금융채6개월물","거치 후 원금분할상환, 일시상환 화면값 존재",신한쏠비즈 비대면 + 재단 상담/심사,4.33,5.76,2025.07.17,5년 이내(보증서 만기일까지)

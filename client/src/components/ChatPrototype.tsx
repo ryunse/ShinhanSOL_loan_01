@@ -163,9 +163,12 @@ export default function ChatPrototype() {
       const lines: string[] = [`[${product.productName}] 신청 조건 안내`]
       if (p.targetCustomer) lines.push(`\n• 대상 고객: ${p.targetCustomer}`)
       if (p.loanPurpose) lines.push(`• 자금 목적: ${String(p.loanPurpose).split(/[/,]/).map(s => s.trim()).join(' / ')}`)
-      const min = fmtAmt(p.minAmount)
       const max = fmtAmt(p.maxAmount)
-      if (min || max) lines.push(`• 대출 한도: ${min} ~ ${max}`)
+      if (max) lines.push(`• 대출 한도: 최대 ${max}`)
+      if (p.maxTerm) lines.push(`• 대출 기간: ${p.maxTerm}`)
+      if (p.minRate != null && p.maxRate != null) {
+        lines.push(`• 금리: 연${p.minRate}% ~ 연${p.maxRate}%${p.rateBaseDate ? ` (${p.rateBaseDate} 기준)` : ''}`)
+      }
       if (p.collateralOrGuarantee) lines.push(`• 담보 / 보증: ${p.collateralOrGuarantee}`)
       if (p.guaranteeRequired === 'Y') lines.push(`• 보증서 제출 필수`)
       lines.push('\n실제 대출 가능 여부·한도·금리는 심사 결과에 따라 달라질 수 있습니다.')

@@ -346,7 +346,7 @@ async function queryProductDetails(productIds: string[]): Promise<{ masters: any
 
   const { data: policies } = await supabase
     .from('product_policy')
-    .select('productId, minAmount, maxAmount, rateType, repaymentOptions, loanType, loanPurpose, collateralOrGuarantee, guaranteeRequired, targetCustomer')
+    .select('productId, minAmount, maxAmount, rateType, minRate, maxRate, rateBaseDate, maxTerm, repaymentOptions, loanType, loanPurpose, collateralOrGuarantee, guaranteeRequired, targetCustomer')
     .in('productId', productIds)
 
   const policyMap: Record<string, any> = {}
@@ -790,6 +790,10 @@ export async function runConsultation(
         minAmount: policy.minAmount,
         maxAmount: policy.maxAmount,
         rateType: policy.rateType,
+        minRate: policy.minRate,
+        maxRate: policy.maxRate,
+        rateBaseDate: policy.rateBaseDate,
+        maxTerm: policy.maxTerm,
         repaymentOptions: toArray(policy.repaymentOptions),
         loanType: policy.loanType,
         loanPurpose: policy.loanPurpose,

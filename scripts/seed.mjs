@@ -115,7 +115,7 @@ async function seed() {
     {
       productId: 'LOAN_DDANGYO_SOHO',
       loanType: '개인사업자 신용대출',
-      targetCustomer: '땡겨요 입점 개인사업자',
+      targetCustomer: '개업년월일 6개월 이상인 신한 배달앱(땡겨요) 입점사업자',
       loanPurpose: '운전자금',
       collateralOrGuarantee: '신용',
       guaranteeRequired: 'N',
@@ -128,6 +128,10 @@ async function seed() {
       baseRateOptions: ['CD91일물', '금융채6개월물'],
       repaymentOptions: ['일시상환', '원금균등분할상환'],
       applicationChannel: '신한쏠비즈 비대면',
+      minRate: 4.73,
+      maxRate: 7.37,
+      rateBaseDate: '2025.10.23',
+      maxTerm: '36개월',
     },
     {
       productId: 'LOAN_REGIONAL_GUARANTEE',
@@ -145,6 +149,10 @@ async function seed() {
       baseRateOptions: ['CD91일물', '금융채6개월물'],
       repaymentOptions: ['거치 후 원금분할상환', '일시상환'],
       applicationChannel: '신한쏠비즈 비대면 + 재단 상담/심사',
+      minRate: 4.33,
+      maxRate: 5.76,
+      rateBaseDate: '2025.07.17',
+      maxTerm: '5년 이내(보증서 만기일까지)',
     },
   ])
 

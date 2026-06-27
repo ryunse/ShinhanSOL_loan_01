@@ -27,6 +27,10 @@ export interface ProductInfo {
     minAmount?: number
     maxAmount?: number
     rateType?: string
+    minRate?: number
+    maxRate?: number
+    rateBaseDate?: string
+    maxTerm?: string
     repaymentOptions?: string[]
     loanType?: string
     loanPurpose?: string

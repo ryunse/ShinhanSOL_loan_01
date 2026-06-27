@@ -38,18 +38,30 @@ export default function ProductRecommendationCard({ product, onCTAClick, onQuick
         <div className="bg-gray-50 rounded-xl p-2.5">
           <p className="text-gray-400 mb-0.5">대출 한도</p>
           <p className="font-semibold text-gray-800">
-            {product.policy.minAmount || product.policy.maxAmount
-              ? `${formatAmount(product.policy.minAmount)} ~ ${formatAmount(product.policy.maxAmount)}`
+            {product.policy.maxAmount
+              ? `최대 ${formatAmount(product.policy.maxAmount)}`
               : '심사 후 결정'}
           </p>
         </div>
         <div className="bg-gray-50 rounded-xl p-2.5">
-          <p className="text-gray-400 mb-0.5">금리유형</p>
+          <p className="text-gray-400 mb-0.5">기간</p>
           <p className="font-semibold text-gray-800">
-            {product.policy.rateType ?? '심사 후 결정'}
+            {product.policy.maxTerm ?? '심사 후 결정'}
           </p>
         </div>
       </div>
+
+      {(product.policy.minRate != null || product.policy.maxRate != null) && (
+        <div className="bg-blue-50 rounded-xl px-3 py-2.5 text-[12px]">
+          <p className="text-blue-400 mb-0.5">금리 (변동)</p>
+          <p className="font-semibold text-blue-800">
+            연 {product.policy.minRate}% ~ 연 {product.policy.maxRate}%
+          </p>
+          {product.policy.rateBaseDate && (
+            <p className="text-[10px] text-blue-400 mt-0.5">{product.policy.rateBaseDate} 기준</p>
+          )}
+        </div>
+      )}
 
       {(() => {
         const opts = Array.isArray(product.policy.repaymentOptions)
