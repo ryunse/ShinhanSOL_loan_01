@@ -80,6 +80,7 @@ export interface EligibilityCondition {
   conditionDescription: string
   failMessage: string
   severity: 'blocking' | 'advisory'
+  conditionPolarity: 'positive' | 'negative'  // positive: 해당되어야 통과 / negative: 해당 없어야 통과
 }
 
 export interface CandidateProduct extends ProductInfo {
@@ -91,6 +92,7 @@ export interface ConsultationOutput {
   step: ConsultationStep
   message: string
   askingSlot?: string
+  eligibilityCurrentPolarity?: 'positive' | 'negative'  // eligibility_check 단계에서 현재 질문 극성
   candidateProducts: CandidateProduct[]
   eligibilityConditions: EligibilityCondition[]
   documents: DocumentInfo[]      // 필요서류 (loan_document_inquiry 시 채움)
@@ -184,12 +186,17 @@ async function retrieveCustomerProfile(): Promise<CustomerProfile> {
 
 function detectYesNo(text: string): boolean | undefined {
   const t = text.trim()
-  if (/^(네|예|맞|있어|됩니다|그렇습니다|해당됩니다|가능합니다|있습니다|했습니다|됐어|맞아요|네네|응|ㅇ|ok|OK|입점됐|이상됩니다)/.test(t)) return true
-  if (/아니|없어|없습니다|안돼|안됩니다|불가|해당\s*(안|없)|못했|아직|아님|nope/.test(t)) return false
+  // "네, 해당됩니다" / "네, 해당 없습니다" 모두 true (통과)
+  if (/^(네|예|맞|있어|됩니다|그렇습니다|가능합니다|했습니다|됐어|맞아요|네네|응|ㅇ|ok|OK|입점됐|이상됩니다)/i.test(t)) return true
+  // "아니요, 해당 안 됩니다" / "아니요, 해당 있습니다" 모두 false (미통과)
+  if (/^(아니|없어|없습니다|안돼|안됩니다|불가|못했|아직|아님|nope)/i.test(t)) return false
   return undefined
 }
 
 function buildEligibilityQuestion(rule: EligibilityCondition): string {
+  if (rule.conditionPolarity === 'negative') {
+    return `[${rule.ruleName}]\n${rule.conditionDescription}\n\n위 항목에 해당 사항이 없으신가요?\n• 네, 해당 없습니다\n• 아니요, 해당 있습니다`
+  }
   return `[${rule.ruleName}]\n${rule.conditionDescription}\n\n해당되시나요?\n• 네, 해당됩니다\n• 아니요, 해당 안 됩니다`
 }
 
@@ -308,9 +315,10 @@ function validateSlot(slotKey: string, value: unknown): ValidationResult {
 async function evaluateEligibilityRules(productIds: string[]): Promise<EligibilityCondition[]> {
   const { data } = await supabase
     .from('eligibility_rules')
-    .select('ruleId, productId, ruleName, conditionDescription, failMessage, failAction, status')
+    .select('ruleId, productId, ruleName, conditionDescription, failMessage, failAction, status, conditionPolarity, qaTarget')
     .in('productId', productIds)
     .eq('status', 'active')
+    .eq('qaTarget', 'user')  // 시스템 내부 검증 규칙은 사용자 Q&A에서 제외
 
   return ((data ?? []) as any[]).map(r => ({
     ruleId: r.ruleId,
@@ -318,6 +326,7 @@ async function evaluateEligibilityRules(productIds: string[]): Promise<Eligibili
     conditionDescription: r.conditionDescription,
     failMessage: r.failMessage,
     severity: (r.failAction as string ?? '').startsWith('block') ? ('blocking' as const) : ('advisory' as const),
+    conditionPolarity: (r.conditionPolarity ?? 'positive') as 'positive' | 'negative',
   }))
 }
 
@@ -685,6 +694,7 @@ export async function runConsultation(
         return {
           step: 'eligibility_check',
           message: `답변을 인식하지 못했습니다. '네' 또는 '아니요'로 답변해 주세요.\n\n${buildEligibilityQuestion(currentRule)}`,
+          eligibilityCurrentPolarity: currentRule.conditionPolarity,
           candidateProducts: [], eligibilityConditions: [], documents: [], disclaimer: '',
           // slots: 방금 추출한 slots 저장, askingSlot 초기화 (슬롯 재요청 루프 방지)
           state: { ...baseState, slots, askingSlot: undefined, turnCount },
@@ -713,13 +723,15 @@ export async function runConsultation(
       // 다음 미답변 규칙 탐색
       const nextIdx = rules.findIndex((r, i) => i > pendingIdx && answers[r.ruleId] === undefined)
       if (nextIdx >= 0) {
+        const nextRule = rules[nextIdx]
         const nextState: ConsultationState = {
           ...baseState, slots, askingSlot: undefined, step: 'eligibility_check', turnCount,
           eligibilityRules: rules, eligibilityPendingIdx: nextIdx, eligibilityAnswers: answers, selectedProductIds: top3Ids,
         }
         return {
           step: 'eligibility_check',
-          message: buildEligibilityQuestion(rules[nextIdx]),
+          message: buildEligibilityQuestion(nextRule),
+          eligibilityCurrentPolarity: nextRule.conditionPolarity,
           candidateProducts: [], eligibilityConditions: [], documents: [], disclaimer: '',
           state: nextState,
           debug: { intent, consultationGoal, slots, pendingSlots: [], matchedKeywords, searchMode, queryMs: Date.now() - start },
@@ -743,6 +755,7 @@ export async function runConsultation(
         return {
           step: 'eligibility_check',
           message: `${intro}\n\n${buildEligibilityQuestion(firstRule)}`,
+          eligibilityCurrentPolarity: firstRule.conditionPolarity,
           candidateProducts: [], eligibilityConditions: [], documents: [], disclaimer: '',
           state: checkState,
           debug: { intent, consultationGoal, slots, pendingSlots: [], matchedKeywords, searchMode, queryMs: Date.now() - start },
