@@ -2,16 +2,18 @@
 
 import { ProductInfo, CTAInfo } from '@/services/loanRuntimeService'
 
+export type QuickActionType = 'documents' | 'repayment' | 'eligibility'
+
 interface Props {
   product: ProductInfo
   onCTAClick: (cta: CTAInfo) => void
-  onQuickAction?: (query: string) => void
+  onQuickAction?: (type: QuickActionType, product: ProductInfo) => void
 }
 
-const QUICK_ACTIONS = [
-  { label: '필요서류', query: (name: string) => `${name} 필요서류 알려줘` },
-  { label: '상환방식', query: (name: string) => `${name} 상환방식이 어떻게 돼?` },
-  { label: '신청 조건', query: (name: string) => `${name} 신청 조건 알려줘` },
+const QUICK_ACTIONS: { label: string; type: QuickActionType }[] = [
+  { label: '필요서류', type: 'documents' },
+  { label: '상환방식', type: 'repayment' },
+  { label: '신청조건', type: 'eligibility' },
 ]
 
 function formatAmount(amount?: number): string {
@@ -22,6 +24,7 @@ function formatAmount(amount?: number): string {
 }
 
 export default function ProductRecommendationCard({ product, onCTAClick, onQuickAction }: Props) {
+
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
       <div>
@@ -69,8 +72,8 @@ export default function ProductRecommendationCard({ product, onCTAClick, onQuick
         <div className="flex gap-1.5 flex-wrap">
           {QUICK_ACTIONS.map(action => (
             <button
-              key={action.label}
-              onClick={() => onQuickAction(action.query(product.productName))}
+              key={action.type}
+              onClick={() => onQuickAction(action.type, product)}
               className="text-[11px] text-blue-600 bg-blue-50 border border-blue-100 rounded-full px-2.5 py-1 hover:bg-blue-100 transition-colors"
             >
               {action.label} 확인

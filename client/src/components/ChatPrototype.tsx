@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { runConsultation, ConsultationState, ConsultationOutput, EligibilityCondition, DocumentInfo } from '@/services/consultationEngine'
-import { CTAInfo } from '@/services/loanRuntimeService'
-import ProductRecommendationCard from './ProductRecommendationCard'
+import { CTAInfo, ProductInfo } from '@/services/loanRuntimeService'
+import ProductRecommendationCard, { QuickActionType } from './ProductRecommendationCard'
 import RuntimeDebugPanel from './RuntimeDebugPanel'
 
 interface Message {
@@ -134,6 +134,52 @@ export default function ChatPrototype() {
     ])
   }
 
+  function handleQuickAction(type: QuickActionType, product: ProductInfo) {
+    // 필요서류 — 상담 엔진 호출 (documents 테이블 조회)
+    if (type === 'documents') {
+      handleSend(`${product.productName} 필요서류 알려줘`)
+      return
+    }
+
+    // 상환방식 / 신청조건 — 엔진 호출 없이 상품 데이터에서 직접 생성
+    const fmtAmt = (n?: number) =>
+      !n ? '' : n >= 100_000_000 ? `${n / 100_000_000}억원` : `${(n / 10_000).toLocaleString()}만원`
+
+    let text = ''
+
+    if (type === 'repayment') {
+      const opts = Array.isArray(product.policy.repaymentOptions)
+        ? (product.policy.repaymentOptions as string[])
+        : typeof product.policy.repaymentOptions === 'string'
+          ? (product.policy.repaymentOptions as string).split(',').map(s => s.trim()).filter(Boolean)
+          : []
+      text = opts.length
+        ? `[${product.productName}] 상환방식\n\n${opts.map(o => `• ${o}`).join('\n')}`
+        : `[${product.productName}] 상환방식은 심사 결과 후 결정됩니다.`
+    }
+
+    if (type === 'eligibility') {
+      const p = product.policy
+      const lines: string[] = [`[${product.productName}] 신청 조건 안내`]
+      if (p.targetCustomer) lines.push(`\n• 대상 고객: ${p.targetCustomer}`)
+      if (p.loanPurpose) lines.push(`• 자금 목적: ${String(p.loanPurpose).split(/[/,]/).map(s => s.trim()).join(' / ')}`)
+      const min = fmtAmt(p.minAmount)
+      const max = fmtAmt(p.maxAmount)
+      if (min || max) lines.push(`• 대출 한도: ${min} ~ ${max}`)
+      if (p.collateralOrGuarantee) lines.push(`• 담보 / 보증: ${p.collateralOrGuarantee}`)
+      if (p.guaranteeRequired === 'Y') lines.push(`• 보증서 제출 필수`)
+      lines.push('\n실제 대출 가능 여부·한도·금리는 심사 결과에 따라 달라질 수 있습니다.')
+      text = lines.join('\n')
+    }
+
+    if (text) {
+      setMessages(prev => [
+        ...prev,
+        { id: Date.now().toString(), role: 'ai', text },
+      ])
+    }
+  }
+
   return (
     <div className="flex flex-col h-screen max-w-[390px] mx-auto bg-gray-50 relative shadow-xl">
       {/* 앱바 */}
@@ -210,18 +256,20 @@ export default function ChatPrototype() {
                   {/* 필요서류 */}
                   <DocumentList docs={msg.output.documents} />
 
-                  {/* 후보 상품 카드 */}
-                  {msg.output.candidateProducts.map(product => (
-                    <ProductRecommendationCard
-                      key={product.productId}
-                      product={product}
-                      onCTAClick={handleCTAClick}
-                      onQuickAction={handleSend}
-                    />
-                  ))}
+                  {/* 후보 상품 카드 — 필요서류 조회 시 미노출 */}
+                  {msg.output.state.intent !== 'loan_document_inquiry' &&
+                    msg.output.candidateProducts.map(product => (
+                      <ProductRecommendationCard
+                        key={product.productId}
+                        product={product}
+                        onCTAClick={handleCTAClick}
+                        onQuickAction={handleQuickAction}
+                      />
+                    ))}
 
-                  {/* 면책 문구 */}
-                  {msg.output.candidateProducts.length > 0 && (
+                  {/* 면책 문구 — 필요서류 조회 시 미노출 */}
+                  {msg.output.candidateProducts.length > 0 &&
+                    msg.output.state.intent !== 'loan_document_inquiry' && (
                     <p className="text-[10px] text-gray-400 px-1 leading-relaxed">
                       {msg.output.disclaimer}
                     </p>
