@@ -6,6 +6,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 이 프로젝트는 신한쏠비즈 플랫폼의 대출상담 및 상품추천을 위한 **신한쏠비즈 대출상담 AI** 설계 명세 및 프롬프트 엔지니어링 프로젝트다. 실행 가능한 코드베이스가 아니며 빌드 명령, 테스트, 패키지 매니저는 존재하지 않는다.
 
+## 프로젝트 목표
+
+본 프로젝트는 SuperSOL 전체 AI 플랫폼을 구현하는 프로젝트가 아니다.
+
+본 프로젝트의 목적은 Loan Consultation Agent를 하나의 독립적인 AI Agent(MVP)로 구현하는 것이다.
+
+향후 SuperSOL Master Agent 하위의 Sub Agent로 편입될 수 있도록 확장 가능한 구조를 설계한다.
+
+이번 프로젝트에서 검증하고자 하는 핵심은 다음과 같다.
+
+- 대출상담 Agent의 독립 실행 가능 여부
+- 상품 및 정책 변경 시 코드 수정 최소화
+- 장애 발생 시 원인 추적 가능 여부
+- 유지보수 및 확장 가능한 계층 구조
+- 향후 Master Agent와의 연계 가능성
+
+Master Agent, 그룹사 연동, Shared Context Memory, Consent Platform 등은 이번 MVP 범위에 포함하지 않는다.
+
 ## 파일별 역할
 
 | 파일 | 역할 |

@@ -1,70 +1,13 @@
-import { createClient } from '@supabase/supabase-js'
+import {
+  CTAInfo, ProductInfo, ExtractedSlots, LoanRuntimeInput, LoanRuntimeOutput,
+} from '@/types/loan.types'
+import * as policyLoader from '@/loaders/policyLoader'
+import { toArray } from '@/engines/recommendationEngine'
+import { formatAmount } from '@/engines/rankingEngine'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+export type { CTAInfo, ProductInfo, ExtractedSlots, LoanRuntimeInput, LoanRuntimeOutput }
 
-export interface LoanRuntimeInput {
-  userText: string
-  intent?: string
-  slots?: Record<string, string>
-}
-
-export interface CTAInfo {
-  label: string
-  action: string
-  targetScreenId: string
-  targetScreenName: string
-}
-
-export interface ProductInfo {
-  productId: string
-  productName: string
-  category: string
-  menuPath?: string
-  policy: {
-    minAmount?: number
-    maxAmount?: number
-    rateType?: string
-    minRate?: number
-    maxRate?: number
-    rateBaseDate?: string
-    maxTerm?: string
-    repaymentOptions?: string[]
-    loanType?: string
-    loanPurpose?: string
-    collateralOrGuarantee?: string
-    guaranteeRequired?: string
-    targetCustomer?: string
-  }
-  cta?: CTAInfo
-  matchScore?: number
-}
-
-export interface ExtractedSlots {
-  desiredAmount?: number
-  customerType?: string
-  loanPurpose?: string
-  guaranteePreference?: string
-  ratePreference?: string
-}
-
-export interface LoanRuntimeOutput {
-  intent: string
-  confidence: number
-  message: string
-  products: ProductInfo[]
-  extractedSlots: ExtractedSlots
-  missingSlots: string[]
-  disclaimer: string
-  raw: {
-    matchedKeywords: string[]
-    queryMs: number
-    intentSource: string
-    searchMode: string
-  }
-}
+// ─── Intent 탐지 ──────────────────────────────────────────────────────────────
 
 function extractIntent(userText: string): { intent: string; confidence: number; source: string } {
   const t = userText
@@ -76,10 +19,11 @@ function extractIntent(userText: string): { intent: string; confidence: number; 
   return { intent: 'loan_recommendation', confidence: 0.7, source: 'default' }
 }
 
+// ─── Slot 추출 ─────────────────────────────────────────────────────────────────
+
 function extractSlots(userText: string): ExtractedSlots {
   const slots: ExtractedSlots = {}
 
-  // 금액 추출
   const amountMatch =
     userText.match(/(\d+)\s*억\s*(\d+)\s*천/) ||
     userText.match(/(\d+(?:\.\d+)?)\s*억/) ||
@@ -103,64 +47,39 @@ function extractSlots(userText: string): ExtractedSlots {
     }
   }
 
-  // 고객 유형
   if (/개인\s*사업자|자영업자?/.test(userText)) slots.customerType = '개인사업자'
   else if (/법인|기업|주식회사|유한회사/.test(userText)) slots.customerType = '법인'
   else if (/소상공인|소기업/.test(userText)) slots.customerType = '소상공인'
 
-  // 대출 목적
   if (/운전\s*자금|운영\s*자금|운영비/.test(userText)) slots.loanPurpose = '운전자금'
   else if (/시설|설비|인테리어|장비|리모델링/.test(userText)) slots.loanPurpose = '시설자금'
   else if (/창업/.test(userText)) slots.loanPurpose = '창업자금'
 
-  // 보증 선호
   if (/무보증|보증\s*없이|보증\s*없는/.test(userText)) slots.guaranteePreference = 'none'
   else if (/보증/.test(userText)) slots.guaranteePreference = 'guarantee'
 
-  // 금리 선호
   if (/저금리|금리\s*낮|낮은\s*금리|이자\s*낮/.test(userText)) slots.ratePreference = 'low'
   else if (/금리|이자/.test(userText)) slots.ratePreference = 'inquire'
 
   return slots
 }
 
+// ─── 상품 점수화 (ExtractedSlots 기반) ────────────────────────────────────────
+
 function scoreProduct(policy: any, slots: ExtractedSlots): number {
   let score = 0
-
-  if (slots.desiredAmount && policy) {
-    const { minAmount, maxAmount } = policy
-    if (minAmount && maxAmount) {
-      if (slots.desiredAmount >= minAmount && slots.desiredAmount <= maxAmount) score += 30
-      else if (slots.desiredAmount < minAmount) score -= 10
-      else score -= 20
-    }
+  if (slots.desiredAmount && policy?.minAmount && policy?.maxAmount) {
+    if (slots.desiredAmount >= policy.minAmount && slots.desiredAmount <= policy.maxAmount) score += 30
+    else if (slots.desiredAmount < policy.minAmount) score -= 10
+    else score -= 20
   }
-
-  // collateralOrGuarantee: '신용' = 무보증, '지역신용보증재단 보증' = 보증부
   if (slots.guaranteePreference === 'none' && policy?.collateralOrGuarantee === '신용') score += 20
   if (slots.guaranteePreference === 'guarantee' && policy?.guaranteeRequired === 'Y') score += 20
-
-  if (slots.ratePreference === 'low') score += 5 // 두 상품 모두 변동금리이므로 소폭 가산
-
+  if (slots.ratePreference === 'low') score += 5
   return score
 }
 
-function toArray(value: unknown): string[] {
-  if (Array.isArray(value)) return value as string[]
-  if (typeof value === 'string' && value.length > 0) {
-    // JSON 배열 문자열 시도
-    try { return JSON.parse(value) } catch { /* not JSON */ }
-    return value.split(',').map(s => s.trim()).filter(Boolean)
-  }
-  return []
-}
-
-function formatAmount(amount?: number): string {
-  if (!amount) return '심사 후 결정'
-  if (amount >= 100000000) return `${(amount / 100000000).toLocaleString()}억원`
-  if (amount >= 10000) return `${(amount / 10000).toLocaleString()}만원`
-  return `${amount.toLocaleString()}원`
-}
+// ─── 응답 메시지 생성 ─────────────────────────────────────────────────────────
 
 function buildMessage(intent: string, products: ProductInfo[], slots: ExtractedSlots): string {
   const hints: string[] = []
@@ -196,6 +115,8 @@ function buildMessage(intent: string, products: ProductInfo[], slots: ExtractedS
   return `조건에 맞는 대출상품 ${products.length}개를 추천해드립니다.${hint} 실제 한도와 금리는 심사 결과에 따라 달라질 수 있습니다.`
 }
 
+// ─── 런타임 메인 ──────────────────────────────────────────────────────────────
+
 export async function runLoanRuntime(input: LoanRuntimeInput): Promise<LoanRuntimeOutput> {
   const start = Date.now()
   const { userText } = input
@@ -205,35 +126,19 @@ export async function runLoanRuntime(input: LoanRuntimeInput): Promise<LoanRunti
     : extractIntent(userText)
 
   const slots = extractSlots(userText)
-  const keywords = userText.split(/\s+/).filter(w => w.length >= 2)
-  const matchedKeywords: string[] = []
-  let searchMode = 'keyword'
 
   // 1. 키워드 기반 상품 검색
-  const { data: keywordRows } = await supabase
-    .from('product_search_keyword')
-    .select('productId, keyword')
+  const { productIds: keywordIds, matchedKeywords } = await policyLoader.searchByKeyword(userText)
+  let productIds = keywordIds
+  let searchMode = 'keyword'
 
-  const productIdSet = new Set<string>()
-  if (keywordRows && keywordRows.length > 0) {
-    for (const row of keywordRows as any[]) {
-      const kw = row.keyword as string
-      if (keywords.some(k => kw.includes(k) || k.includes(kw))) {
-        productIdSet.add(row.productId)
-        matchedKeywords.push(kw)
-      }
-    }
-  }
-
-  // 2. 키워드 미매칭 시 전체 상품 폴백 (슬롯 기반 랭킹 적용)
-  let productIds = Array.from(productIdSet)
-  if (productIds.length === 0) {
+  // 2. 키워드 미매칭 시 전체 상품 폴백
+  if (!productIds.length) {
     searchMode = 'slot_fallback'
-    const { data: allProducts } = await supabase.from('product_master').select('productId').eq('active', 'Y')
-    productIds = ((allProducts ?? []) as any[]).map(r => r.productId)
+    productIds = await policyLoader.getAllActiveProductIds()
   }
 
-  if (productIds.length === 0) {
+  if (!productIds.length) {
     return {
       intent, confidence,
       message: 'DB에 등록된 상품이 없습니다. Supabase에 상품 데이터를 먼저 입력해 주세요.',
@@ -245,72 +150,33 @@ export async function runLoanRuntime(input: LoanRuntimeInput): Promise<LoanRunti
     }
   }
 
-  // 3. product_master 조회
-  const { data: productRows } = await supabase
-    .from('product_master')
-    .select('productId, productName, productCategory, menuPath')
-    .in('productId', productIds)
+  // 3. 상품 상세 조회
+  const { masters, policyMap } = await policyLoader.getProductDetails(productIds)
 
-  // 4. product_policy 조회
-  const policyMap: Record<string, any> = {}
-  if (productIds.length > 0) {
-    const { data: policyRows } = await supabase
-      .from('product_policy')
-      .select('productId, minAmount, maxAmount, rateType, repaymentOptions, loanType, loanPurpose, collateralOrGuarantee, guaranteeRequired, targetCustomer')
-      .in('productId', productIds)
-    for (const p of (policyRows ?? []) as any[]) policyMap[p.productId] = p
-  }
-
-  // 5. 슬롯 기반 랭킹 후 상위 3개
-  const scoredProducts = ((productRows ?? []) as any[])
+  // 4. 슬롯 기반 랭킹 후 상위 3개
+  const scoredProducts = masters
     .map(row => ({ row, score: scoreProduct(policyMap[row.productId], slots) }))
     .sort((a, b) => b.score - a.score)
     .slice(0, 3)
 
   const top3Ids = scoredProducts.map(p => p.row.productId)
 
-  // 6. routing_map 조회 — 각 상품의 첫 번째 navigate screen (entry CTA)
-  //    actionType='navigate' + screenType='screen' 기준, routingId 오름차순 → 상품별 첫 번째 선택
-  const ctaMap: Record<string, any> = {}
-  if (top3Ids.length > 0) {
-    const { data: routingRows } = await supabase
-      .from('routing_map')
-      .select('productId, actionType, targetScreenId, targetScreenName, ctaLabel, screenType')
-      .in('productId', top3Ids)
-      .eq('actionType', 'navigate')
-      .eq('screenType', 'screen')
-      .order('routingId', { ascending: true })
+  // 5. CTA + 화면 조회
+  const ctaMap = await policyLoader.getBusinessActionCTA(top3Ids)
+  const screenIds = Object.values(ctaMap).map(r => r.targetScreenId)
+  const screenMap = await policyLoader.getScreenMapping(screenIds)
 
-    for (const r of (routingRows ?? []) as any[]) {
-      // 상품별 첫 번째 라우트만 사용 (error branch dialog는 screenType='dialog'이므로 이미 제외됨)
-      if (!ctaMap[r.productId]) ctaMap[r.productId] = r
-    }
-  }
-
-  // 7. screen_mapping 조회
-  const screenIds = Object.values(ctaMap).map((r: any) => r.targetScreenId)
-  const screenMap: Record<string, any> = {}
-  if (screenIds.length > 0) {
-    const { data: screenRows } = await supabase
-      .from('screen_mapping')
-      .select('screenId, screenName, stepLabel')
-      .in('screenId', screenIds)
-    for (const s of (screenRows ?? []) as any[]) screenMap[s.screenId] = s
-  }
-
-  // 8. 결과 조합
+  // 6. 결과 조합
   const products: ProductInfo[] = scoredProducts.map(({ row, score }) => {
     const policy = policyMap[row.productId] ?? {}
     const routing = ctaMap[row.productId]
     const screen = routing ? screenMap[routing.targetScreenId] : null
-    const cta: CTAInfo | undefined = routing
-      ? {
-          label: routing.ctaLabel,
-          action: routing.actionType,
-          targetScreenId: routing.targetScreenId,
-          targetScreenName: screen?.screenName ?? routing.targetScreenName ?? routing.targetScreenId,
-        }
-      : undefined
+    const cta: CTAInfo | undefined = routing ? {
+      label: routing.ctaLabel,
+      action: routing.actionType,
+      targetScreenId: routing.targetScreenId,
+      targetScreenName: screen?.screenName ?? routing.targetScreenName ?? routing.targetScreenId,
+    } : undefined
 
     return {
       productId: row.productId,

@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { runConsultation, ConsultationState, ConsultationOutput, EligibilityCondition, DocumentInfo } from '@/services/consultationEngine'
-import { CTAInfo, ProductInfo } from '@/services/loanRuntimeService'
+import { runConsultation } from '@/services/consultationEngine'
+import { ConsultationState, ConsultationOutput, EligibilityCondition, DocumentInfo, CTAInfo, ProductInfo } from '@/types/loan.types'
 import ProductRecommendationCard, { QuickActionType } from './ProductRecommendationCard'
 import RuntimeDebugPanel from './RuntimeDebugPanel'
 
@@ -97,6 +97,7 @@ export default function ChatPrototype() {
   // ── 대화 상태 유지 — 멀티턴 slot filling 핵심 ──────────────────────────────
   const [consultationState, setConsultationState] = useState<ConsultationState | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -120,6 +121,7 @@ export default function ChatPrototype() {
       ])
     } finally {
       setIsLoading(false)
+      setTimeout(() => inputRef.current?.focus(), 0)
     }
   }
 
@@ -324,11 +326,13 @@ export default function ChatPrototype() {
         {/* 입력창 */}
         <div className="px-3 pb-4 pt-2 flex gap-2">
           <input
+            ref={inputRef}
             type="text"
+            autoFocus
             value={inputText}
             onChange={e => setInputText(e.target.value)}
             onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault()
                 handleSend(inputText)
               }

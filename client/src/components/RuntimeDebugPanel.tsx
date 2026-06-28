@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ConsultationOutput } from '@/services/consultationEngine'
+import { ConsultationOutput } from '@/types/loan.types'
 
 interface Props {
   data: ConsultationOutput | null

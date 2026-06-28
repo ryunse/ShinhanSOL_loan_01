@@ -1,6 +1,6 @@
 'use client'
 
-import { ProductInfo, CTAInfo } from '@/services/loanRuntimeService'
+import { ProductInfo, CTAInfo } from '@/types/loan.types'
 
 export type QuickActionType = 'documents' | 'repayment' | 'eligibility'
 
